@@ -1,0 +1,40 @@
+# Large or local data (track structure via metadata/file_inventory.csv)
+raw_data/*
+!raw_data/.gitkeep
+raw_docs/*
+!raw_docs/.gitkeep
+output/**/*.parquet
+output/**/*.feather
+!output/**/.gitkeep
+!output/validation/*.csv
+
+# Intermediate outputs (not for public release)
+output/yearly_clean/
+output/linked/
+output/harmonized/
+output/convenience/
+
+# Internal / private docs
+docs/LLM_HANDOFF_LOG.md
+docs/AUDIT_SESSION_*.md
+docs/PAPER_DRAFT_DATA_DESCRIPTOR.md
+docs/ANALYSIS_PLAN_IMR_REVERSAL.md
+AUDIT_PROMPT.md
+AUDIT_PROMPT_V2.md
+Natality Harmonization Project.md
+
+# Third-party PDFs
+*.pdf
+
+# Claude Code metadata
+.claude/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# OS
+.DS_Store

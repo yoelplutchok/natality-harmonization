@@ -1,0 +1,96 @@
+year,raw_field_name,raw_label,raw_code_values,candidate_harmonized_name,comparability_status,notes
+2005,MAGER,Mother's single years of age,12-50,maternal_age,full,UserGuide2005 pos 89-90.
+2010,MAGER,Mother's single years of age,12-50,maternal_age,full,UserGuide2010 pos 89-90.
+2015,MAGER,Mother's single years of age,12-50,maternal_age,full,UserGuide2015 pos 75-76.
+2005,RESTATUS,Residence status,1-4,restatus,full,UserGuide2005 pos 138; code 4 is foreign resident.
+2010,RESTATUS,Residence status,1-4,restatus,full,UserGuide2010 pos 138; code 4 is foreign resident.
+2015,RESTATUS,Residence status,1-4,restatus,full,UserGuide2015 pos 104; code 4 is foreign resident.
+2005,LBO_REC,Live birth order recode,1-7;8;9,live_birth_order_recode,full,UserGuide2005 pos 212; 9=unknown/not stated.
+2010,LBO_REC,Live birth order recode,1-7;8;9,live_birth_order_recode,full,UserGuide2010 pos 212; 9=unknown/not stated.
+2015,LBO_REC,Live birth order recode,1-7;8;9,live_birth_order_recode,full,UserGuide2015 pos 179; 9=unknown/not stated.
+2005,TBO_REC,Total birth order recode,1-7;8;9,total_birth_order_recode,full,UserGuide2005 pos 217; 9=unknown/not stated.
+2010,TBO_REC,Total birth order recode,1-7;8;9,total_birth_order_recode,full,UserGuide2010 pos 217; 9=unknown/not stated.
+2015,TBO_REC,Total birth order recode,1-7;8;9,total_birth_order_recode,full,UserGuide2015 pos 182; 9=unknown/not stated.
+2005,MAR,Mother's marital status,1;2;9,marital_status,full,UserGuide2005 pos 153; 1=married; 2=unmarried; 9=unknown/not stated.
+2010,MAR,Mother's marital status,1;2;9,marital_status,full,UserGuide2010 pos 153; 1=married; 2=unmarried; 9=unknown/not stated.
+2015,DMAR,Marital status,1;2;9,marital_status,full,UserGuide2015 pos 120; 1=married; 2=unmarried; 9=unknown/not stated.
+2005,UMHISP,Mother's Hispanic origin,0;1-5;9,maternal_hispanic_origin,partial,UserGuide2005 pos 148; 0=non-Hispanic; 1=Mexican; 2=Puerto Rican; 3=Cuban; 4=Central or South American; 5=Other/Unknown Hispanic; 9=unknown/not stated.
+2010,UMHISP,Mother's Hispanic origin,0;1-5;9,maternal_hispanic_origin,partial,UserGuide2010 pos 148; 0=non-Hispanic; 1=Mexican; 2=Puerto Rican; 3=Cuban; 4=Central or South American; 5=Other/Unknown Hispanic; 9=unknown/not stated.
+2015,MHISP_R,Mother's Hispanic origin recode,0;1-5;9,maternal_hispanic_origin,partial,UserGuide2015 pos 115; 0=non-Hispanic; 1=Mexican; 2=Puerto Rican; 3=Cuban; 4=Central and South American; 5=Other and Unknown Hispanic; 9=not stated.
+2005,MRACEREC,Mother's race recode (bridged),1-4 (PR=0),maternal_race_bridged4,partial,UserGuide2005 pos 143; 1=White; 2=Black; 3=AIAN; 4=Asian/PI; bridging and imputation vary across years.
+2010,MRACEREC,Mother's race recode (bridged),1-4 (PR=0),maternal_race_bridged4,partial,UserGuide2010 pos 143; 1=White; 2=Black; 3=AIAN; 4=Asian/PI; bridging and imputation vary across years.
+2015,MBRACE,Bridged race mother,1-4 (PR uses 0),maternal_race_bridged4,partial,UserGuide2015 pos 110; 1=White; 2=Black; 3=AIAN; 4=Asian/PI; bridged single-race categories.
+2005,MRACE,Mother's race (detail),01-18 plus API expansions,maternal_race_detail,within-era,UserGuide2005 pos 141-142; detailed coding differs from revised-era MRACE6.
+2010,MRACE,Mother's race (detail),01-18 plus API expansions,maternal_race_detail,within-era,UserGuide2010 pos 141-142; detailed coding differs from revised-era MRACE6.
+2015,MRACE6,Mother's race recode 6,1-6,maternal_race_detail,within-era,UserGuide2015 pos 107; 6=more than one race.
+2005,MEDUC,Mother's education (revised),1-8;9,maternal_education_cat4,partial,UserGuide2005 pos 155 (revised only); map to cat4: 1-2=lt_hs; 3=hs_grad; 4-5=some_college; 6-8=ba_plus; 9=unknown; use when nonblank else use MEDUC_REC.
+2005,MEDUC_REC,Mother's education recode (unrevised),1-6,maternal_education_cat4,partial,UserGuide2005 pos 158 (unrevised); map to cat4: 1-2=lt_hs; 3=hs_grad; 4=some_college; 5=ba_plus; 6=unknown; use when MEDUC blank.
+2010,MEDUC,Mother's education (revised),1-8;9,maternal_education_cat4,partial,UserGuide2010 pos 155 (revised). Note: in 2009-2013 public-use files, unrevised education fields (DMEDUC/MEDUC_REC) are blank, so education is effectively revised-births only.
+2010,MEDUC_REC,Mother's education recode (unrevised),1-6,maternal_education_cat4,partial,UserGuide2010 pos 158 (unrevised) but blank in the 2010 public-use file (0 nonblank); cannot be used to recover unrevised education.
+2015,MEDUC,Mother's education,1-8;9,maternal_education_cat4,partial,UserGuide2015 pos 124; map to cat4: 1-2=lt_hs; 3=hs_grad; 4-5=some_college; 6-8=ba_plus; 9=unknown.
+2005,PRECARE,Month prenatal care began (revised),00;01-10;99,prenatal_care_start_month,partial,UserGuide2005 pos 245-246 (revised only); use when nonblank else use MPCB; 00=no prenatal care.
+2005,MPCB,Month prenatal care began (unrevised),00;01-10;99,prenatal_care_start_month,partial,UserGuide2005 pos 256-257 (unrevised); use when PRECARE blank; 00=no prenatal care.
+2010,PRECARE,Month prenatal care began (revised),00;01-10;99,prenatal_care_start_month,partial,UserGuide2010 pos 245-246 (revised). Note: in 2009-2013 public-use files, the unrevised counterpart MPCB is blank, so prenatal care start month is effectively revised-births only.
+2010,MPCB,Month prenatal care began (unrevised),00;01-10;99,prenatal_care_start_month,partial,UserGuide2010 pos 256-257 (unrevised) but blank in the 2010 public-use file (0 nonblank); cannot be used to recover unrevised prenatal care start month.
+2015,PRECARE,Month prenatal care began,00;01-10;99,prenatal_care_start_month,partial,UserGuide2015 pos 224-225; 00=no prenatal care.
+2005,UPREVIS,Number of prenatal visits,00-49;99,prenatal_visits,partial,UserGuide2005 pos 270-271; 99=unknown/not stated.
+2010,UPREVIS,Number of prenatal visits,00-49;99,prenatal_visits,partial,UserGuide2010 pos 270-271; 99=unknown/not stated.
+2015,PREVIS,Number of prenatal visits,00-98;99,prenatal_visits,partial,UserGuide2015 pos 238-239; 99=unknown/not stated.
+2005,CIG_REC6,Cigarette recode (unrevised),0-6,smoking_any_during_pregnancy,partial,UserGuide2005 pos 293 (unrevised); 0=nonsmoker; 1-5=smoker intensity; 6=unknown; smoking_any=true when 1-5.
+2005,CIG_1,Cigarettes 1st trimester (revised count),00-97;98;99,smoking_any_during_pregnancy,partial,UserGuide2005 pos 284-285 (revised); derive recode6 from count then smoking_any=true when max trimester recode in 1-5.
+2005,CIG_2,Cigarettes 2nd trimester (revised count),00-97;98;99,smoking_any_during_pregnancy,partial,UserGuide2005 pos 286-287 (revised); derive recode6 from count then smoking_any=true when max trimester recode in 1-5.
+2005,CIG_3,Cigarettes 3rd trimester (revised count),00-97;98;99,smoking_any_during_pregnancy,partial,UserGuide2005 pos 288-289 (revised); derive recode6 from count then smoking_any=true when max trimester recode in 1-5.
+2010,CIG_REC6,Cigarette recode (unrevised),0-6,smoking_any_during_pregnancy,partial,UserGuide2010 pos 293 (unrevised) but blank in the 2010 public-use file (0 nonblank); unrevised smoking is not available, so smoking measures are effectively revised-births only via CIG_1/2/3.
+2010,CIG_1,Cigarettes 1st trimester (revised count),00-97;98;99,smoking_any_during_pregnancy,partial,UserGuide2010 pos 284-285 (revised); derive recode6 from count then smoking_any=true when max trimester recode in 1-5.
+2010,CIG_2,Cigarettes 2nd trimester (revised count),00-97;98;99,smoking_any_during_pregnancy,partial,UserGuide2010 pos 286-287 (revised); derive recode6 from count then smoking_any=true when max trimester recode in 1-5.
+2010,CIG_3,Cigarettes 3rd trimester (revised count),00-97;98;99,smoking_any_during_pregnancy,partial,UserGuide2010 pos 288-289 (revised); derive recode6 from count then smoking_any=true when max trimester recode in 1-5.
+2015,CIG1_R,Cigarettes 1st trimester recode,0-6,smoking_any_during_pregnancy,partial,UserGuide2015 pos 262; 0=nonsmoker; 1-5=intensity; 6=unknown; smoking_any=true when max trimester recode in 1-5.
+2015,CIG2_R,Cigarettes 2nd trimester recode,0-6,smoking_any_during_pregnancy,partial,UserGuide2015 pos 263; 0=nonsmoker; 1-5=intensity; 6=unknown; smoking_any=true when max trimester recode in 1-5.
+2015,CIG3_R,Cigarettes 3rd trimester recode,0-6,smoking_any_during_pregnancy,partial,UserGuide2015 pos 264; 0=nonsmoker; 1-5=intensity; 6=unknown; smoking_any=true when max trimester recode in 1-5.
+2005,CIG_REC6,Cigarette recode (unrevised),0-6,smoking_intensity_max_recode6,partial,UserGuide2005 pos 293 (unrevised); use directly as intensity category when nonblank.
+2005,CIG_1,Cigarettes 1st trimester (revised count),00-97;98;99,smoking_intensity_max_recode6,partial,UserGuide2005 pos 284-285 (revised); recode6 from count: 00->0; 01-05->1; 06-10->2; 11-20->3; 21-40->4; >=41 or 98->5; 99->6.
+2005,CIG_2,Cigarettes 2nd trimester (revised count),00-97;98;99,smoking_intensity_max_recode6,partial,UserGuide2005 pos 286-287 (revised); recode6 from count: 00->0; 01-05->1; 06-10->2; 11-20->3; 21-40->4; >=41 or 98->5; 99->6.
+2005,CIG_3,Cigarettes 3rd trimester (revised count),00-97;98;99,smoking_intensity_max_recode6,partial,UserGuide2005 pos 288-289 (revised); recode6 from count: 00->0; 01-05->1; 06-10->2; 11-20->3; 21-40->4; >=41 or 98->5; 99->6.
+2010,CIG_REC6,Cigarette recode (unrevised),0-6,smoking_intensity_max_recode6,partial,UserGuide2010 pos 293 (unrevised) but blank in the 2010 public-use file (0 nonblank); unrevised smoking is not available, so intensity uses revised CIG_1/2/3 only.
+2010,CIG_1,Cigarettes 1st trimester (revised count),00-97;98;99,smoking_intensity_max_recode6,partial,UserGuide2010 pos 284-285 (revised); recode6 from count: 00->0; 01-05->1; 06-10->2; 11-20->3; 21-40->4; >=41 or 98->5; 99->6.
+2010,CIG_2,Cigarettes 2nd trimester (revised count),00-97;98;99,smoking_intensity_max_recode6,partial,UserGuide2010 pos 286-287 (revised); recode6 from count: 00->0; 01-05->1; 06-10->2; 11-20->3; 21-40->4; >=41 or 98->5; 99->6.
+2010,CIG_3,Cigarettes 3rd trimester (revised count),00-97;98;99,smoking_intensity_max_recode6,partial,UserGuide2010 pos 288-289 (revised); recode6 from count: 00->0; 01-05->1; 06-10->2; 11-20->3; 21-40->4; >=41 or 98->5; 99->6.
+2015,CIG1_R,Cigarettes 1st trimester recode,0-6,smoking_intensity_max_recode6,partial,UserGuide2015 pos 262; use max of trimester recodes.
+2015,CIG2_R,Cigarettes 2nd trimester recode,0-6,smoking_intensity_max_recode6,partial,UserGuide2015 pos 263; use max of trimester recodes.
+2015,CIG3_R,Cigarettes 3rd trimester recode,0-6,smoking_intensity_max_recode6,partial,UserGuide2015 pos 264; use max of trimester recodes.
+2015,CIG0_R,Cigarettes before pregnancy recode,0-6,smoking_pre_pregnancy_recode6,within-era,UserGuide2015 pos 261; not directly comparable to pregnancy smoking measures.
+2005,URF_DIAB,Diabetes (U/R combined),1;2;9;blank,diabetes_any,full,UserGuide2005 pos 331; 1=yes; 2=no; 9=unknown; blank=not on certificate.
+2010,URF_DIAB,Diabetes (U/R combined),1;2;9;blank,diabetes_any,full,UserGuide2010 pos 331; 1=yes; 2=no; 9=unknown; blank=not on certificate.
+2015,URF_DIAB,Diabetes (U/R combined),1;2;9;blank,diabetes_any,full,UserGuide2015 pos 1331; 1=yes; 2=no; 9=unknown; blank=not on certificate.
+2005,URF_CHYPER,Chronic hypertension (U/R combined),1;2;9;blank,hypertension_chronic,full,UserGuide2005 pos 335; 1=yes; 2=no; 9=unknown; blank=not on certificate.
+2010,URF_CHYPER,Chronic hypertension (U/R combined),1;2;9;blank,hypertension_chronic,full,UserGuide2010 pos 335; 1=yes; 2=no; 9=unknown; blank=not on certificate.
+2015,URF_CHYPER,Chronic hypertension (U/R combined),1;2;9;blank,hypertension_chronic,full,UserGuide2015 pos 1332; 1=yes; 2=no; 9=unknown; blank=not on certificate.
+2005,URF_PHYPER,Pregnancy-associated hypertension (U/R combined),1;2;9;blank,hypertension_gestational,full,UserGuide2005 pos 336; 1=yes; 2=no; 9=unknown; blank=not on certificate.
+2010,URF_PHYPER,Pregnancy-associated hypertension (U/R combined),1;2;9;blank,hypertension_gestational,full,UserGuide2010 pos 336; 1=yes; 2=no; 9=unknown; blank=not on certificate.
+2015,URF_PHYPER,Pregnancy-associated hypertension (U/R combined),1;2;9;blank,hypertension_gestational,full,UserGuide2015 pos 1333; 1=yes; 2=no; 9=unknown; blank=not on certificate.
+2005,DPLURAL,Plurality recode,1-5,plurality_recode,full,UserGuide2005 pos 423.
+2010,DPLURAL,Plurality recode,1-5,plurality_recode,full,UserGuide2010 pos 423.
+2015,DPLURAL,Plurality recode,1-5,plurality_recode,full,UserGuide2015 pos 454.
+2005,SEX,Infant sex,M;F,infant_sex,full,UserGuide2005 pos 436.
+2010,SEX,Infant sex,M;F,infant_sex,full,UserGuide2010 pos 436.
+2015,SEX,Infant sex,M;F,infant_sex,full,UserGuide2015 pos 475.
+2005,COMBGEST,Combined gestation detail in weeks,17-47;99,gestational_age_weeks,partial,UserGuide2005 pos 451-452; use for 2005-2013; 99=unknown.
+2010,COMBGEST,Combined gestation detail in weeks,17-47;99,gestational_age_weeks,partial,UserGuide2010 pos 451-452; use for 2005-2013; 99=unknown.
+2015,OEGEST_COMB,Obstetric estimate edited (weeks),17-47;99,gestational_age_weeks,partial,UserGuide2015 pos 499-500; prefer for 2014-2015; 99=not stated.
+2015,COMBGEST,Combined gestation detail in weeks,17-47;99,gestational_age_weeks,partial,UserGuide2015 pos 490-491; retained for reference but not preferred in 2014-2015.
+2005,GESTREC3,Gestation recode 3,1-3,preterm_recode3,partial,UserGuide2005 pos 455; use for 2005-2013 combined gestation series.
+2010,GESTREC3,Gestation recode 3,1-3,preterm_recode3,partial,UserGuide2010 pos 455; use for 2005-2013 combined gestation series.
+2015,OEGEST_R3,Obstetric estimate recode 3,1-3,preterm_recode3,partial,UserGuide2015 pos 503; prefer for 2014-2015.
+2015,GESTREC3,Combined gestation recode 3,1-3,preterm_recode3,partial,UserGuide2015 pos 494; retained for reference but not preferred in 2014-2015.
+2005,DBWT,Birthweight detail in grams,0227-8165;9999,birthweight_grams,full,UserGuide2005 pos 463-466; 9999=not stated.
+2010,DBWT,Birthweight detail in grams,0227-8165;9999,birthweight_grams,full,UserGuide2010 pos 463-466; 9999=not stated.
+2015,DBWT,Birthweight detail in grams (edited),0227-8165;9999,birthweight_grams,full,UserGuide2015 pos 504-507; 9999=not stated.
+2005,DMETH_REC,Delivery method recode,1;2;9,delivery_method_recode,partial,UserGuide2005 pos 403; 1=vaginal; 2=cesarean; 9=unknown.
+2010,DMETH_REC,Delivery method recode,1;2;9,delivery_method_recode,partial,UserGuide2010 pos 403; 1=vaginal; 2=cesarean; 9=unknown.
+2015,DMETH_REC,Delivery method recode,1-4;9,delivery_method_recode,partial,UserGuide2015 pos 408; verify year-specific coding for categories beyond vaginal/cesarean.
+2005,APGAR5,Five minute Apgar score,00-10;99,apgar5,full,UserGuide2005 pos 415-416; 99=unknown/not stated.
+2010,APGAR5,Five minute Apgar score,00-10;99,apgar5,full,UserGuide2010 pos 415-416; 99=unknown/not stated.
+2015,APGAR5,Five minute Apgar score,00-10;99,apgar5,full,UserGuide2015 pos 444-445; 99=unknown/not stated.
+2005,MBCNTRY,Mother's birth country code,AA-ZZ,maternal_nativity,excluded,UserGuide2005 pos 94-95. Empirically this field is blank in the 2005-2013 public-use files we have; exclude from V1 until resolved.
+2010,MBCNTRY,Mother's birth country code,AA-ZZ,maternal_nativity,excluded,UserGuide2010 pos 94-95. Empirically this field is blank in the 2005-2013 public-use files we have; exclude from V1 until resolved.
+2015,MBSTATE_REC,Mother's nativity recode,1-3,maternal_nativity,excluded,UserGuide2015 pos 84; available in 2014-2015 only and not comparable to blanked/suppressed MBCNTRY; exclude from V1 to avoid a within-era-only nativity series.
