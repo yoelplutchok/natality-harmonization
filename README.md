@@ -81,4 +81,4 @@ Reproducibility, transparency, explicit comparability documentation, and usabili
 ## Citation
 
 - Cite **NCHS** as the source of the underlying public-use microdata.
-- Cite this repository/release (DOI pending).
+- Cite this dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19363075.svg)](https://doi.org/10.5281/zenodo.19363075)
