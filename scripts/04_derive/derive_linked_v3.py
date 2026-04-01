@@ -173,6 +173,9 @@ def main() -> None:
         pa.field("singleton", pa.bool_()),
         pa.field("maternal_age_cat", pa.string()),
         pa.field("father_age_cat", pa.string()),
+        pa.field("diabetes_any_bool", pa.bool_()),
+        pa.field("hypertension_chronic_bool", pa.bool_()),
+        pa.field("hypertension_gestational_bool", pa.bool_()),
         # Death-side derived
         pa.field("neonatal_death", pa.bool_()),
         pa.field("postneonatal_death", pa.bool_()),
@@ -205,6 +208,26 @@ def main() -> None:
             age_cat = _age_cat(age)
             fage_cat = _age_cat(fage)
 
+            # Medical risk factor booleans (1=yes→True, 2=no→False, 9/null→null)
+            diab = batch.column(batch.schema.get_field_index("diabetes_any"))
+            chyp = batch.column(batch.schema.get_field_index("hypertension_chronic"))
+            ghyp = batch.column(batch.schema.get_field_index("hypertension_gestational"))
+
+            def _int129_to_bool(arr: pa.Array) -> pa.Array:
+                return pc.if_else(
+                    pc.equal(arr, pa.scalar(1, type=arr.type)),
+                    pa.scalar(True),
+                    pc.if_else(
+                        pc.equal(arr, pa.scalar(2, type=arr.type)),
+                        pa.scalar(False),
+                        pa.scalar(None, type=pa.bool_()),
+                    ),
+                )
+
+            diab_bool = _int129_to_bool(diab)
+            chyp_bool = _int129_to_bool(chyp)
+            ghyp_bool = _int129_to_bool(ghyp)
+
             # Death-side derived
             # Neonatal death: infant_death=True AND age_at_death_days < 28
             # Postneonatal death: infant_death=True AND age_at_death_days >= 28
@@ -221,6 +244,7 @@ def main() -> None:
             out_arrays = list(batch.columns) + [
                 ga_clean, bw_clean, apgar_clean,
                 lbw, vlbw, preterm, vpreterm, singleton, age_cat, fage_cat,
+                diab_bool, chyp_bool, ghyp_bool,
                 neonatal, postneonatal, cause_grp,
             ]
             out_batch = pa.RecordBatch.from_arrays(out_arrays, schema=out_schema)

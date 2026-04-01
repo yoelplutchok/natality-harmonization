@@ -216,6 +216,7 @@ PUBLIC_US_2014_2015_FIELDS: list[tuple[str, int, int]] = [
     ("MHISP_R", 115, 115),
     ("MRACEHISP", 117, 117),
     ("DMAR", 120, 120),
+    ("F_MAR_P", 123, 123),    # Reporting flag for marital/paternity (0=non-reporting state, 1=reporting)
     ("MEDUC", 124, 124),
     ("LBO_REC", 179, 179),
     ("TBO_REC", 182, 182),

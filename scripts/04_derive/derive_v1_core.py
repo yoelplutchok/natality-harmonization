@@ -93,6 +93,9 @@ def main() -> None:
         "gestational_age_weeks",
         "birthweight_grams",
         "apgar5",
+        "diabetes_any",
+        "hypertension_chronic",
+        "hypertension_gestational",
     ]
     missing = [c for c in required if c not in in_schema.names]
     if missing:
@@ -111,6 +114,9 @@ def main() -> None:
             pa.field("singleton", pa.bool_()),
             pa.field("maternal_age_cat", pa.string()),
             pa.field("father_age_cat", pa.string()),
+            pa.field("diabetes_any_bool", pa.bool_()),
+            pa.field("hypertension_chronic_bool", pa.bool_()),
+            pa.field("hypertension_gestational_bool", pa.bool_()),
         ]
     )
     out_schema = pa.schema(out_fields)
@@ -139,6 +145,27 @@ def main() -> None:
             age_cat = _age_cat(age)
             fage_cat = _age_cat(fage)
 
+            # Medical risk factors: convert 1/2/9 coding to nullable bool
+            # 1=yes→True, 2=no→False, 9=unknown→null, null→null
+            diab = batch.column(batch.schema.get_field_index("diabetes_any"))
+            chyp = batch.column(batch.schema.get_field_index("hypertension_chronic"))
+            ghyp = batch.column(batch.schema.get_field_index("hypertension_gestational"))
+
+            def _int129_to_bool(arr: pa.Array) -> pa.Array:
+                return pc.if_else(
+                    pc.equal(arr, pa.scalar(1, type=arr.type)),
+                    pa.scalar(True),
+                    pc.if_else(
+                        pc.equal(arr, pa.scalar(2, type=arr.type)),
+                        pa.scalar(False),
+                        pa.scalar(None, type=pa.bool_()),
+                    ),
+                )
+
+            diab_bool = _int129_to_bool(diab)
+            chyp_bool = _int129_to_bool(chyp)
+            ghyp_bool = _int129_to_bool(ghyp)
+
             # Build output batch: original columns + derived columns.
             out_arrays = list(batch.columns)
             out_arrays.extend(
@@ -153,6 +180,9 @@ def main() -> None:
                     singleton,
                     age_cat,
                     fage_cat,
+                    diab_bool,
+                    chyp_bool,
+                    ghyp_bool,
                 ]
             )
             out_batch = pa.RecordBatch.from_arrays(out_arrays, schema=out_schema)

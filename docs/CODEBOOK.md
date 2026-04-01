@@ -30,12 +30,14 @@ For full per-variable provenance, see `metadata/harmonized_schema.csv`.
 | `maternal_age` | Mother's age (single years) | int16 | 1990–2024 | partial | 1990–2002: `DMAGE`; 2003: approximate from `MAGER41` recode; 2004+: `MAGER` |
 | `live_birth_order_recode` | Live birth order recode | int8 | 1990–2024 | full | 1990–2002: `LIVORD9`; 2003+: `LBO_REC` |
 | `total_birth_order_recode` | Total birth order recode | int8 | 1990–2024 | full | 1990–2002: `TOTORD9`; 2003+: `TBO_REC` |
-| `marital_status` | Marital status | int8 | 1990–2024 | full | `DMAR` (1990–2013) vs `MAR` (2005–2013) vs `DMAR` (2014+) |
+| `marital_status` | Marital status | int8 | 1990–2024 | partial | `DMAR` (1990–2002) vs `MAR` (2003–2013) vs `DMAR` (2014+). **California stopped reporting in 2017: ~11–12% null from 2017+.** Use `marital_reporting_flag` (2014+) to filter to reporting states. |
+| `marital_reporting_flag` | Marital status reporting flag | bool | 2014–2024 | partial | Derived from `F_MAR_P`. True = state reports marital status; False = non-reporting state (California from 2017+). Null for all pre-2014 years. |
 | `maternal_hispanic_origin` | Mother's Hispanic origin recode | int8 | 1990–2024 | partial | 1990–2002: `ORMOTH`; 2003–2013: `UMHISP`; 2014+: `MHISP_R` |
 | `maternal_hispanic` | Maternal Hispanic indicator | bool | 1990–2024 | partial | Derived from `maternal_hispanic_origin` |
 | `maternal_race_bridged4` | Mother's bridged race (4 categories) | int8 | 1990–2024 | partial | 1990–2002: **approximate** bridge from `MRACE` detail codes; 2003+: official `MRACEREC`/`MBRACE` |
-| `maternal_race_ethnicity_5` | Maternal race/ethnicity (NH race + Hispanic) | string | 1990–2024 | partial | Derived from Hispanic + bridged race |
+| `maternal_race_ethnicity_5` | Maternal race/ethnicity (NH race + Hispanic) | string | 1990–2024 | partial | Derived from Hispanic + bridged race (2003–2019) or MRACE6 detail (2020+). Multiracial (MRACE6=06, ~3%) → null for 2020+. |
 | `maternal_race_detail` | Mother's race (detail code as reported) | string | 1990–2024 | within-era | 1990–2002: `MRACE` (1–78); 2003–2013: `MRACE`; 2014+: `MRACE6` |
+| `race_bridge_method` | Race bridge derivation method | string | 1990–2024 | partial | `approximate_pre2003` (1990–2002), `nchs_bridged` (2003–2019), `approximate_from_detail` (2020–2024). |
 | `maternal_education_cat4` | Maternal education (4-category) | string | 1990–2024 | partial | 1990–2002: years-of-schooling→cat4 crosswalk; 2003–2008: revised `MEDUC` + unrevised `MEDUC_REC`; 2009–2013: revised-only; 2014+: `MEDUC` |
 | `prenatal_care_start_month` | Month prenatal care began | int16 | 1990–2024 | partial | 1990–2002: `MONPRE`; 2003–2008: `PRECARE`+`MPCB`; 2009–2013: revised-only; 2014+: `PRECARE` |
 | `prenatal_care_start_trimester` | Prenatal care start trimester | string | 1990–2024 | partial | Derived from start month |
@@ -52,7 +54,7 @@ For full per-variable provenance, see `metadata/harmonized_schema.csv`.
 | `gestational_age_weeks_source` | Gestation source used | string | 1990–2024 | partial | `lmp` (1990–2002), `combined` (2003–2013), `obstetric_estimate` (2014+) |
 | `preterm_recode3` | Preterm recode 3 best available | int8 | 1990–2024 | partial | 1990–2002: `GESTAT3`; 2003–2013: `GESTREC3`; 2014+: `OEGEST_R3` |
 | `birthweight_grams` | Birthweight (grams) | int32 | 1990–2024 | full | 1990–2002: `DBIRWT`; 2003+: `DBWT`. `9999` = not stated |
-| `delivery_method_recode` | Delivery method recode | int8 | 1990–2024 | partial | 1990–2002: `DELMETH5` (5→9 remap); 2003+: `DMETH_REC`. Coding differs across eras; treat as coarse |
+| `delivery_method_recode` | Delivery method recode | int8 | 1990–2024 | partial | 1990–2004: `DELMETH5` codes (1=vaginal, 2=VBAC, 3=primary CS, 4=repeat CS, 5→9); 2005+: `DMETH_REC` (1=vaginal, 2=cesarean, 9=not stated). Cesarean binary (codes 3+4 pre-2005, code 2 post-2005) validated against NVSR rates 1990–2024 |
 | `apgar5` | Five-minute Apgar score | int16 | 1990–2024 | full | 1990–2002: `FMAPS`; 2003+: `APGAR5`. `99` = not stated |
 | `bmi_prepregnancy` | Pre-pregnancy BMI (continuous) | float32 | 2014–2024 | within-era | `99.9` → null sentinel. Not available before 2014 |
 | `bmi_prepregnancy_recode6` | Pre-pregnancy BMI 6-category recode | int8 | 2014–2024 | within-era | 1=Underweight (<18.5); 2=Normal (18.5–24.9); 3=Overweight (25.0–29.9); 4=Obesity I (30.0–34.9); 5=Obesity II (35.0–39.9); 6=Extreme obesity III (40.0+). `9` → null sentinel. Not available before 2014 |
@@ -84,6 +86,12 @@ For full per-variable provenance, see `metadata/harmonized_schema.csv`.
 | `prior_cesarean_count` | Number of prior cesarean deliveries | int8 | 2014–2024 | within-era | `RF_CESARN`: 0–30 = count, 99→null. Not available before 2014 |
 | `fertility_enhancing_drugs` | Fertility-enhancing drugs used | bool | 2014–2024 | within-era | `RF_FEDRG`: Y→true, N→false, X(not applicable)/U→null. High null rate expected (X is the dominant code for births without fertility treatment) |
 | `assisted_reproductive_tech` | Assisted reproductive technology used | bool | 2014–2024 | within-era | `RF_ARTEC`: Y→true, N→false, U/blank→null. High null rate expected (see `fertility_enhancing_drugs` note) |
+| `pre_pregnancy_diabetes` | Pre-pregnancy diabetes | bool | 2014–2024 | within-era | `RF_PDIAB`: Y→true, N→false, U/blank→null. Finer-grained than `diabetes_any`; distinguishes pre-existing from gestational |
+| `gestational_diabetes` | Gestational diabetes | bool | 2014–2024 | within-era | `RF_GDIAB`: Y→true, N→false, U/blank→null. Finer-grained than `diabetes_any` |
+| `nicu_admission` | NICU admission | bool | 2014–2024 | within-era | `AB_NICU`: Y→true, N→false, U/blank→null |
+| `weight_gain_pounds` | Weight gain during pregnancy (pounds) | int16 | 2014–2024 | within-era | `WTGAIN`: 0–97 = pounds, 99→null. Not available before 2014 |
+| `induction_of_labor` | Induction of labor | bool | 2014–2024 | within-era | `LD_INDL`: Y→true, N→false, U/blank→null |
+| `breastfed_at_discharge` | Breastfed at discharge | bool | 2014–2024 | within-era | `BFED`: Y→true, N→false, U/blank→null |
 
 ### Derived columns (added by `derive_v1_core.py`)
 
@@ -99,6 +107,9 @@ For full per-variable provenance, see `metadata/harmonized_schema.csv`.
 | `singleton` | Singleton birth | bool | `plurality_recode == 1` |
 | `maternal_age_cat` | Maternal age category | string | `<20`, `20-24`, `25-29`, `30-34`, `35-39`, `40+` |
 | `father_age_cat` | Father age category | string | `<20`, `20-24`, `25-29`, `30-34`, `35-39`, `40+` |
+| `diabetes_any_bool` | Diabetes (nullable boolean) | bool | `diabetes_any`: 1→true, 2→false, 9→null. Preferred for downstream analysis — sentinel 9 no longer passes `IS NOT NULL` |
+| `hypertension_chronic_bool` | Chronic hypertension (nullable boolean) | bool | `hypertension_chronic`: 1→true, 2→false, 9→null |
+| `hypertension_gestational_bool` | Gestational hypertension (nullable boolean) | bool | `hypertension_gestational`: 1→true, 2→false, 9→null |
 
 ## V3: Linked birth-infant death variables (2005–2023)
 
@@ -106,7 +117,7 @@ The V3 linked harmonized file (`output/harmonized/natality_v3_linked_harmonized.
 
 Implemented by:
 
-- `scripts/01_import/parse_linked_year.py` (2005-2015), `scripts/01_import/parse_linked_cohort_year.py` (2016-2020)
+- `scripts/01_import/parse_all_linked_years.py` (2005–2015 batch), `scripts/01_import/parse_linked_cohort_year.py` (2016–2023)
 - `scripts/03_harmonize/harmonize_linked_v3.py`
 - `scripts/04_derive/derive_linked_v3.py` (derived columns)
 
@@ -116,7 +127,7 @@ Implemented by:
 |-----|-------|--------------|--------|-----------------|
 | 2005–2013 | 2005–2013 | 900 bytes | Denominator-plus (birth + death appended) | Death fields at positions 868–900; FLGND=1/2 coding; birthweight at 467–470 |
 | 2014–2015 | 2014–2015 | 1384 bytes | Denominator-plus (birth + death appended) | Death fields at positions 1346–1384; FLGND=1/blank coding; birthweight at 512–515 |
-| 2016–2020 | 2016–2020 | 1346 (denom) + 1743 (numer) | Period-cohort (separate files, merged by CO_SEQNUM) | Death fields from numerator at positions 1346–1384; FLGND=1/blank coding |
+| 2016–2023 | 2016–2023 | 1346 (denom) + 1743 (numer) | Period-cohort (separate files, merged by CO_SEQNUM) | Death fields from numerator at positions 1346–1384; FLGND=1/blank coding |
 
 **Notes:**
 - Linked file birthweight positions differ from natality files. The linked files use `BRTHWGT` (imputed birthweight) instead of `DBWT`.
@@ -142,7 +153,7 @@ Implemented by:
 | `postneonatal_death` | Postneonatal death (28–364 days) | bool | `infant_death AND age_at_death_days >= 28` |
 | `cause_group` | Standard infant cause-of-death grouping | string | 13 categories based on ICD-10 underlying cause: `congenital_anomalies` (Q00–Q99), `short_gestation_lbw` (P07), `sids` (R95), `maternal_complications` (P01), `placenta_cord_membranes` (P02), `unintentional_injuries` (V01–X59), `bacterial_sepsis` (P36), `respiratory_distress` (P22), `nec` (P77), `circulatory` (I00–I99), `assault` (X85–Y09), `other_perinatal` (remaining P00–P96), `other` (all else). Null for survivors |
 
-Plus all birth-side derived columns (`gestational_age_weeks_clean`, `low_birthweight`, `preterm_lt37`, `singleton`, `maternal_age_cat`, etc.).
+Plus birth-side derived columns: `gestational_age_weeks_clean`, `birthweight_grams_clean`, `apgar5_clean`, `low_birthweight`, `very_low_birthweight`, `preterm_lt37`, `very_preterm_lt32`, `singleton`, `maternal_age_cat`, `father_age_cat`. (Note: the V2-only `diabetes_any_bool`, `hypertension_chronic_bool`, `hypertension_gestational_bool` are not yet included in V3 linked derived.)
 
 ## Next
 

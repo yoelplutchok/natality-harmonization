@@ -1,55 +1,92 @@
-# Version 1 data source — locked decisions
+# Data sources
 
-These choices match the project brief (natality only, 2005–2015) and the standard way researchers obtain **public-use** U.S. birth microdata from NCHS.
+These are the raw inputs to the harmonization pipeline. All are **public-use** files from the National Center for Health Statistics (NCHS), Division of Vital Statistics.
 
-## 1. Dataset: period natality public-use file
+## 1. Natality files (1990–2024)
 
-Use the **annual natality (birth) public-use microdata** from the National Center for Health Statistics (NCHS), Division of Vital Statistics — **not** the linked birth–infant death files. Linked files are a separate product (your roadmap’s **Version 3**).
+**Annual natality (birth) public-use microdata** — one record per registered live birth. Each file is a **period** file: births with date of birth in that calendar year.
 
-Each file is a **period** file: births with **date of birth** in that calendar year (as defined in the User Guide for that year).
+### URL patterns
 
-## 2. Geography: U.S. national file (`…us.zip`)
+| Years | ZIP pattern | Doc pattern | Notes |
+|-------|------------|-------------|-------|
+| 1990–1993 | `Nat{YYYY}.zip` | `Nat{YYYY}doc.pdf` | US + territories combined; filter on `RECTYPE=1` for US-only |
+| 1994–2024 | `Nat{YYYY}us.zip` | `UserGuide{YYYY}.pdf` | US-only |
 
-For Version 1, use the **United States** zips:
+Base URLs:
 
-- Pattern: `Nat{YYYY}us.zip` (e.g. `Nat2015us.zip`).
+- **Data**: `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/natality/`
+- **Documentation**: `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/`
+- **Portal** (human-readable index): [Vital Statistics Online — Downloadable Data Files](https://www.cdc.gov/nchs/data_access/Vitalstatsonline.htm)
 
-**Exclude** `Nat{YYYY}ps.zip` (Puerto Rico / territories) unless you later add an explicit extension for territories. Mixing `us` and `ps` without documentation would confuse users.
+**Documentation addenda** (use alongside the main guide):
 
-## 3. Official access and URLs
+- 2009: `UserGuide2009_Addendum.pdf`
+- 2010: `UserGuide2010_Addendum.pdf`
 
-- **Portal (human-readable index):** [Vital Statistics Online — Downloadable Data Files](https://www.cdc.gov/nchs/data_access/Vitalstatsonline.htm) (NCHS).
-- **Data (HTTPS, same host as documentation links on that page):**  
-  `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/natality/Nat{YYYY}us.zip`
-- **Documentation (User Guide PDF per year):**  
-  `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide{YYYY}.pdf`
+### File format
 
-**Addenda (use alongside the main guide):**
+After unzip: one or more **large ASCII text files** with **fixed-width fields** (positions and widths defined in the annual User Guide). Record lengths vary by era:
 
-- 2009: [UserGuide2009_Addendum.pdf](https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2009_Addendum.pdf)
-- 2010: [UserGuide2010_Addendum.pdf](https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2010_Addendum.pdf)
+| Era | Years | Record length | Certificate |
+|-----|-------|---------------|-------------|
+| Pre-2003 | 1990–2002 | 350 bytes | Unrevised 1989 |
+| Transition | 2003 | 1350 bytes | Dual (first year of 2003 revision) |
+| Transition | 2004 | 1500 bytes | Dual |
+| Transition | 2005–2013 | 775 bytes (2006–2013), 1500 bytes (2005) | Dual |
+| Revised-only | 2014–2024 | 1345 bytes | Revised 2003 |
 
-## 4. File format inside the zip
+### Compression caveats
 
-The public-use files are **not** ready-made CSV. After unzip, you typically get one or more **large ASCII text** files with **fixed-width fields** (positions and widths are in the annual User Guide). Your import code should treat **layout as year-specific** until harmonization.
+Most zips use standard **deflate** and stream fine with Python's `zipfile`. Exceptions:
 
-Record the exact internal filename(s) after your first unzip in `metadata/file_inventory.csv` (`notes` column).
+- **2009–2013**: deflate64 (zip method 9) — requires `7z`
+- **2015**: PPMd (zip method 98) — requires `7z`
+- **2016–2017, 2020**: deflate64 — requires `7z`
+- **2014, 2018–2019, 2021–2024**: standard deflate
 
-## 5. Restricted-use data (out of scope for V1)
+Install: `brew install p7zip` (macOS) or `apt install p7zip-full` (Linux). The import scripts automatically fall back to `7z` when needed.
 
-County/city/sub-state geography and some sensitive fields exist only on **restricted** files (RDC / application process). This harmonization targets **public-use** fields only; say so clearly in the FAQ and comparability docs.
+## 2. Linked birth-infant death files (2005–2023)
 
-## 6. Terms of use
+**NCHS cohort linked birth-infant death files** link each infant death certificate back to the corresponding birth certificate. Two formats:
+
+| Years | Format | Source directory | ZIP pattern | User guide |
+|-------|--------|-----------------|-------------|------------|
+| 2005–2015 | Denominator-plus (birth + death in single record) | `.../DVS/cohortlinkedus/` | `LinkCO{YY}US.zip` | `LinkCO{YY}Guide.pdf` (available for 2005, 2010, 2015) |
+| 2016–2023 | Period-cohort (separate denominator + numerator, merged by CO_SEQNUM) | `.../DVS/period-cohort-linked/` | `{Y+1}PE{Y}CO.zip` | `{Y+1}PE{Y}CO_linkedUG.pdf` |
+
+Base URLs:
+
+- **2005–2015**: `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/cohortlinkedus/`
+- **2016–2023**: `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/`
+
+### Linked compression caveats
+
+- **2005–2012, 2015**: standard deflate
+- **2013**: deflate64 — requires `7z`
+- **2014**: LZMA — requires `7z`
+- **2016–2020**: deflate64 — requires `7z`
+- **2021–2023**: standard deflate (verify after download)
+
+## 3. Restricted-use data (out of scope)
+
+County/city/sub-state geography and some sensitive fields exist only on **restricted** files (RDC / application process). This harmonization targets **public-use** fields only.
+
+## 4. Terms of use
 
 Review and cite NCHS materials:
 
 - [Data Users Agreement](https://www.cdc.gov/nchs/data_access/restrictions.htm)
 - [Vital Statistics Data Release Policy](https://www.cdc.gov/nchs/nvss/dvs_data_release.htm)
 
-## 7. Implementation language (recommendation)
+## 5. Local storage conventions
 
-**Python + pandas** is a practical default: `read_fwf` or explicit column positions from the guide, plus Parquet/CSV for your cleaned outputs. R works equally well (`read.fwf`, `readr`). Pick one stack for the repo and stay consistent.
+| Kind | Put it here |
+|------|-------------|
+| User Guide PDFs (natality) | `raw_docs/` |
+| User Guide PDFs (linked) | `raw_docs/linked/` |
+| Natality zips | `raw_data/` |
+| Linked zips | `raw_data/linked/` |
 
----
-
-**Summary:** Version 1 raw inputs = **NCHS public-use period natality `NatYYYYus.zip` for 2005–2015**, documented yearly by **UserGuideYYYY.pdf** (plus 2009/2010 addenda), parsed as **fixed-width ASCII** per the guide.
+The **inventory** in `metadata/file_inventory.csv` tracks what was retrieved and when. These folders are in `.gitignore`.

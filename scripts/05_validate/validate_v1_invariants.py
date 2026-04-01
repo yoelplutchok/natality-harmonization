@@ -471,6 +471,61 @@ def main() -> None:
             pre2009 = pc.less(year, 2009)
             violations["payment_source_nonnull_pre2009"] += _count_true(pc.and_(pre2009, pc.is_valid(pay)))
 
+    # ===== Null-rate discontinuity detection =====
+    # Second pass: compute per-variable, per-year null rates and flag >5 ppt year-over-year jumps.
+    null_rate_cols = [
+        "marital_status", "maternal_hispanic", "maternal_race_bridged4",
+        "maternal_race_ethnicity_5", "maternal_education_cat4",
+        "prenatal_care_start_month", "smoking_any_during_pregnancy",
+        "smoking_intensity_max_recode6", "diabetes_any", "hypertension_chronic",
+        "hypertension_gestational", "gestational_age_weeks", "birthweight_grams",
+        "delivery_method_recode", "apgar5", "father_age",
+    ]
+    null_rate_cols = [c for c in null_rate_cols if c in cols]
+
+    # {(year, col): [n_total, n_null]}
+    null_counts: dict[tuple[int, str], list[int]] = {}
+
+    for batch in pf.iter_batches(batch_size=args.batch_rows, columns=["year"] + null_rate_cols):
+        year_col = batch.column(0)
+        for y in years:
+            mask = pc.equal(year_col, y)
+            n = _count_true(mask)
+            if n == 0:
+                continue
+            for col_name in null_rate_cols:
+                col = batch.column(batch.schema.get_field_index(col_name))
+                col_filtered = pc.filter(col, mask)
+                n_null = int(pc.sum(pc.cast(pc.is_null(col_filtered), pa.int64())).as_py() or 0)
+                key = (y, col_name)
+                if key not in null_counts:
+                    null_counts[key] = [0, 0]
+                null_counts[key][0] += n
+                null_counts[key][1] += n_null
+
+    # Detect >5 ppt year-over-year jumps
+    NULL_BREAK_THRESHOLD = 5.0  # percentage points
+    null_breaks: list[dict[str, object]] = []
+    for col_name in null_rate_cols:
+        year_pcts: dict[int, float] = {}
+        for y in sorted(years):
+            key = (y, col_name)
+            if key in null_counts and null_counts[key][0] > 0:
+                year_pcts[y] = null_counts[key][1] / null_counts[key][0] * 100.0
+        sorted_yrs = sorted(year_pcts.keys())
+        for i in range(1, len(sorted_yrs)):
+            prev_y, curr_y = sorted_yrs[i - 1], sorted_yrs[i]
+            delta = year_pcts[curr_y] - year_pcts[prev_y]
+            if abs(delta) > NULL_BREAK_THRESHOLD:
+                null_breaks.append({
+                    "variable": col_name,
+                    "year_from": prev_y,
+                    "year_to": curr_y,
+                    "null_pct_from": round(year_pcts[prev_y], 2),
+                    "null_pct_to": round(year_pcts[curr_y], 2),
+                    "delta_ppt": round(delta, 2),
+                })
+
     # Coverage thresholds (fail if violated)
     # For 2009–2013 unrevised records, revised-only domains should be (almost) entirely null.
     # Use a strict threshold of 99.9% missing; any non-null is treated as a violation above anyway.
@@ -552,6 +607,22 @@ def main() -> None:
         lines.append(
             f"| {y} | {s.unrevised_rows_2009_2013:,} | {s.unrevised_educ_nonnull_2009_2013:,} | {s.unrevised_pnmonth_nonnull_2009_2013:,} | {s.unrevised_smokeint_nonnull_2009_2013:,} |"
         )
+    lines.append("")
+    lines.append(f"## Null-rate discontinuities (>{NULL_BREAK_THRESHOLD} ppt year-over-year change)")
+    lines.append("")
+    if null_breaks:
+        lines.append(f"**{len(null_breaks)} break(s) detected** (informational — these reflect known structural changes, not bugs):")
+        lines.append("")
+        lines.append("| Variable | Year transition | Null % (from → to) | Delta (ppt) |")
+        lines.append("|----------|----------------|---------------------|-------------|")
+        for b in null_breaks:
+            lines.append(
+                f"| `{b['variable']}` | {b['year_from']}→{b['year_to']} "
+                f"| {b['null_pct_from']:.1f}% → {b['null_pct_to']:.1f}% "
+                f"| {b['delta_ppt']:+.1f} |"
+            )
+    else:
+        lines.append("No null-rate discontinuities detected.")
     lines.append("")
     lines.append("## Status")
     lines.append("")

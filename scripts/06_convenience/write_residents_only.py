@@ -13,11 +13,34 @@ Outputs:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
+
+
+def _get_git_hash() -> str:
+    """Return short git hash or 'unknown' if not in a repo."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL, text=True,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "unknown"
+
+
+def _sha256(path: Path) -> str:
+    """Compute SHA-256 hex digest of a file."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def filter_residents(in_path: Path, out_path: Path, batch_size: int = 500_000) -> None:
@@ -33,6 +56,19 @@ def filter_residents(in_path: Path, out_path: Path, batch_size: int = 500_000) -
     drop_cols = {"is_foreign_resident", "restatus"}
     out_fields = [f for f in in_schema if f.name not in drop_cols]
     out_schema = pa.schema(out_fields)
+
+    # Embed pipeline version metadata in the parquet file
+    git_hash = _get_git_hash()
+    build_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    metadata = {
+        b"pipeline_git_hash": git_hash.encode(),
+        b"pipeline_build_timestamp": build_ts.encode(),
+        b"pipeline_source_file": str(in_path.name).encode(),
+    }
+    # Merge with any existing schema metadata
+    if out_schema.metadata:
+        metadata.update(out_schema.metadata)
+    out_schema = out_schema.with_metadata(metadata)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     writer = pq.ParquetWriter(out_path, out_schema, compression="zstd")
@@ -75,13 +111,40 @@ def main() -> None:
     p.add_argument("--skip-v3", action="store_true", help="Skip V3 linked")
     args = p.parse_args()
 
+    v2_out = args.out_dir / "natality_v2_residents_only.parquet"
+    v3_out = args.out_dir / "natality_v3_linked_residents_only.parquet"
+
     if not args.skip_v2:
-        filter_residents(args.v2_in, args.out_dir / "natality_v2_residents_only.parquet", args.batch_size)
+        filter_residents(args.v2_in, v2_out, args.batch_size)
 
     if not args.skip_v3:
-        filter_residents(args.v3_in, args.out_dir / "natality_v3_linked_residents_only.parquet", args.batch_size)
+        filter_residents(args.v3_in, v3_out, args.batch_size)
 
-    print("\nDone.")
+    # Write PROVENANCE.md with SHA-256 hashes for downstream verification
+    provenance_path = args.out_dir / "PROVENANCE.md"
+    git_hash = _get_git_hash()
+    build_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    prov_lines = [
+        "# Convenience parquet provenance",
+        "",
+        f"- **Pipeline git hash**: `{git_hash}`",
+        f"- **Build timestamp**: `{build_ts}`",
+        "",
+        "## SHA-256 checksums",
+        "",
+        "Use these to verify your copy matches the upstream build:",
+        "",
+        "```",
+    ]
+    for out_file in [v2_out, v3_out]:
+        if out_file.is_file():
+            sha = _sha256(out_file)
+            prov_lines.append(f"{sha}  {out_file.name}")
+    prov_lines.append("```")
+    prov_lines.append("")
+    provenance_path.write_text("\n".join(prov_lines), encoding="utf-8")
+    print(f"\nWrote {provenance_path}")
+    print("Done.")
 
 
 if __name__ == "__main__":

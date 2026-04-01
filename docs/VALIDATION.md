@@ -1,26 +1,53 @@
 # Validation
 
-*Update as you run checks.*
-
 ## Row counts (external + internal)
 
-- `output/validation/row_count_validation_nchs_1994_2023.md` — **unified 1994–2023** Parquet rows vs zip size-implied counts (all 30 years match); resident rows match NCHS residence totals exactly for 1994–2018 (2019–2023 not yet in CDC Open Data API but validated via NVSR targets)
+- `output/validation/row_count_validation_nchs_1994_2024.md` — **unified 1994–2024** Parquet rows vs zip size-implied counts (all years match); resident rows match NCHS residence totals exactly for 1994–2018 (2019–2024 not yet in CDC Open Data API but validated via NVSR targets)
 - `output/validation/row_count_validation_nchs_1994_2004.md` — 1994–2004 subset (legacy)
 - `output/validation/row_count_validation_nchs_2005_2015.md` — 2005–2015 subset (original V1 baseline)
 - The script (`scripts/05_validate/validate_row_counts_vs_nchs.py`) also fetches NCHS published annual births (**residence-based**) from `data.cdc.gov` (`e6fc-ccez`) and uses `RESTATUS` (code `4` = foreign resident) to reproduce the NCHS residence totals exactly.
 - Note: 1990–1993 zips (`Nat{year}.zip`) contain only US records. The parser reads all 350-byte records; RESTATUS correctly distinguishes resident status.
 
-## Missingness + frequency QA (core extracts)
+## Missingness + frequency QA (raw core extracts)
+
+Legacy per-era QA on the **raw** (pre-harmonization) yearly Parquet extracts. These check blank/whitespace rates on the NCHS field names, not the harmonized column names. For harmonized-level null rates, see the "Harmonized missingness diagnostics" section below.
 
 - Summary pointer: `output/validation/qa_core_2005_2015.md` (V1 baseline)
 - Missingness (blank/whitespace-only) by year/column: `output/validation/qa_missingness_core_2005_2015.csv`
 - Frequencies (selected low-cardinality columns): `output/validation/qa_frequencies_core_2005_2015.csv`
 
+## Harmonized missingness diagnostics
+
+Per-variable per-year null rates across all harmonized variables, with structural break detection.
+
+Run:
+
+```bash
+python scripts/05_validate/harmonized_missingness.py
+```
+
+Outputs:
+
+- `output/validation/harmonized_missingness_by_year.csv` — null rate for every harmonized variable by year (columns: `year`, `variable`, `n_total`, `n_null`, `null_pct`)
+- `output/validation/harmonized_missingness_breaks.csv` — any variable where the null rate changes by >5 percentage points between adjacent years
+- `output/validation/harmonized_missingness_report.md` — summary with break table
+
+This is the recommended first check before any multi-year analysis. Known structural breaks include:
+
+| Variable | Break year | Mechanism |
+|----------|-----------|-----------|
+| `marital_status` | 2017 | California stopped reporting (~11–12% null) |
+| `smoking_any_during_pregnancy` | 2009, 2014 | Revised-only in 2009–2013; all states revised by 2014 |
+| `maternal_education_cat4` | 2009 | Same revised-only mechanism as smoking |
+| `maternal_race_bridged4` | 2020 | NCHS dropped bridged race (100% null) |
+| `maternal_race_ethnicity_5` | 2020 | Multiracial ~3% cannot be bridged (now reconstructed from MRACE6) |
+| `father_education_cat4` | 1995, 2009 | Dropped from public-use 1995–2008; partially restored 2009+ |
+
 ## Key derived rates (resident-only)
 
 - By-year resident-only LBW + preterm rates:
-  - `output/validation/key_rates_core_1990_2023.csv` (full range)
-  - `output/validation/key_rates_core_1990_2023.md`
+  - `output/validation/key_rates_core_1990_2024.csv` (full range)
+  - `output/validation/key_rates_core_1990_2024.md`
 
 Reproduce:
 
@@ -32,17 +59,11 @@ python scripts/05_validate/key_rates_from_derived_core.py --in output/harmonized
 
 Spot-checks: LBW 6.97% (1990), 7.32% (1995), 7.57% (2000), 8.07% (2015), 8.24% (2020) — all match NCHS published values. Preterm rates show expected series breaks at 2003 (LMP→combined) and 2014 (combined→obstetric estimate).
 
-Document:
+## External validation (V2 natality)
 
-- Row counts by year (vs. published totals if available)
-- Missingness patterns
-- Range and logic checks (e.g., gestational age, birthweight)
-- Frequency spot-checks vs. official tables (low birthweight, preterm, key demographics)
-- Anomalies and unresolved issues
+**Results: 183/183 targets pass.** Validated against NCHS “Births: Final Data” NVSR reports, CDC Data API, and NCHS Data Briefs covering resident birth counts, LBW%, preterm%, twin/triplet+ rates, cesarean%, singleton%, male%, smoking%, and Medicaid% across 1990-2024.
 
-Point to machine-readable outputs in `output/validation/` when generated.
-
-## External validation playbook (make V1 “release-grade”)
+### Playbook
 
 Goal: for a small set of **gold** outcomes/distributions, reproduce published NCHS residence-based values and record the comparison in a **machine-readable** way.
 
@@ -65,7 +86,7 @@ For benchmark years (e.g., **1995**, **2000**, **2005**, **2010**, **2015**, **2
 
 For education / smoking / prenatal-care initiation, either:
 
-- validate only **2014–2015** (near-national revised coverage), or
+- validate only **2014+** (near-national revised coverage), or
 - validate within a **revised-only reporting area** if the official table defines one (then use `resident_revised`).
 
 ### Step 3: Record targets in a CSV (auditable)
@@ -108,8 +129,8 @@ python scripts/05_validate/validate_v1_invariants.py \
 
 Outputs:
 
-- `output/validation/invariants_report_1990_2023.md`
-- `output/validation/invariants_year_summary_1990_2023.csv`
+- `output/validation/invariants_report_1990_2024.md`
+- `output/validation/invariants_year_summary_1990_2024.csv`
 
 This script checks:
 
@@ -119,6 +140,9 @@ This script checks:
 - gestation source rules (no obstetric-estimate source prior to 2014)
 - certificate revision validity (2014+ must be revised_2003; values must be one of the three allowed strings)
 - preservation of known structural coverage constraints (e.g., 2009–2013 unrevised records remain missing for revised-only domains)
+- era-coverage constraints for 2014+-only variables (congenital anomalies, infections, prior cesarean count, fertility treatment, ART must be null pre-2014)
+- father demographics consistency (Hispanic/race-ethnicity agreement, education null 1995–2008, payment source null pre-2009)
+- **null-rate discontinuity detection**: for 16 key harmonized variables, computes per-year null rates and flags any >5 percentage-point year-over-year change (informational — reflects known structural changes, not bugs)
 
 ## V3: Linked birth-infant death validation (2005–2023)
 
@@ -132,7 +156,7 @@ python scripts/05_validate/validate_linked_parquets.py --years 2005-2023
 
 Outputs:
 
-- Range-labeled CSV/MD summaries under `output/validation/` (for example `linked_validation_2005_2020.csv`)
+- Range-labeled CSV/MD summaries under `output/validation/` (filenames reflect the year range used)
 - Current full-range outputs: `linked_validation_2005_2023.csv` and `linked_validation_2005_2023.md`
 
 This script checks:
@@ -140,7 +164,7 @@ This script checks:
 - **Row-count correctness**: Parquet rows match zip size-implied rows across the full 2005-2023 linked scope
 - **Layout correctness**: DOB_YY matches expected year at 100%; byte-level field position spot checks
 - **Missingness sanity**: death fields (AGED, UCOD) blank for survivors, filled for deaths — exact alignment with FLGND
-- **Frequency/IMR trend**: IMR falls from 6.75 (2005) to 5.48 (2023) in the full linked files, remaining in the expected low-5 to mid-6 range
+- **Frequency/IMR trend**: IMR falls from 6.74 (2005) to 5.49 (2023) in the full linked files, remaining in the expected low-5 to mid-6 range
 - **Linked vs natality row counts**: exact for 14/19 years; small positive differences occur only in 2005, 2006, 2008, 2011, and 2012 due to LATEREC
 
 ### External validation (linked)
@@ -206,18 +230,20 @@ The 2021 neonatal and postneonatal rates above are computed from the linked file
 ```bash
 # 2005-2015 (denominator-plus format)
 python scripts/01_import/parse_all_linked_years.py --years 2005-2015
-# 2016-2023 (period-cohort format — one year at a time)
-python scripts/01_import/parse_linked_cohort_year.py --zip raw_data/linked/2017PE2016CO.zip --year 2016 --out output/linked/linked_2016_denomplus.parquet
-python scripts/01_import/parse_linked_cohort_year.py --zip raw_data/linked/2018PE2017CO.zip --year 2017 --out output/linked/linked_2017_denomplus.parquet
-python scripts/01_import/parse_linked_cohort_year.py --zip raw_data/linked/2019PE2018CO.zip --year 2018 --out output/linked/linked_2018_denomplus.parquet
-python scripts/01_import/parse_linked_cohort_year.py --zip raw_data/linked/2020PE2019CO.zip --year 2019 --out output/linked/linked_2019_denomplus.parquet
-python scripts/01_import/parse_linked_cohort_year.py --zip raw_data/linked/2021PE2020CO.zip --year 2020 --out output/linked/linked_2020_denomplus.parquet
-python scripts/01_import/parse_linked_cohort_year.py --zip raw_data/linked/2022PE2021CO.zip --year 2021 --out output/linked/linked_2021_denomplus.parquet
-python scripts/01_import/parse_linked_cohort_year.py --zip raw_data/linked/2023PE2022CO.zip --year 2022 --out output/linked/linked_2022_denomplus.parquet
-python scripts/01_import/parse_linked_cohort_year.py --zip raw_data/linked/2024PE2023CO.zip --year 2023 --out output/linked/linked_2023_denomplus.parquet
+
+# 2016-2023 (period-cohort format)
+for cohort_year in 2016 2017 2018 2019 2020 2021 2022 2023; do
+  period_year=$((cohort_year + 1))
+  python scripts/01_import/parse_linked_cohort_year.py \
+    --zip "raw_data/linked/${period_year}PE${cohort_year}CO.zip" \
+    --year "$cohort_year" \
+    --out "output/linked/linked_${cohort_year}_denomplus.parquet"
+done
+
 # Harmonize and derive
 python scripts/03_harmonize/harmonize_linked_v3.py --years 2005-2023
 python scripts/04_derive/derive_linked_v3.py
+
 # Validate
 python scripts/05_validate/validate_linked_parquets.py --years 2005-2023
 python scripts/05_validate/compare_external_targets_v3_linked.py

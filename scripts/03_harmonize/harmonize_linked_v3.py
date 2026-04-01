@@ -224,11 +224,13 @@ OUT_SCHEMA = pa.schema([
     ("live_birth_order_recode", pa.int8()),
     ("total_birth_order_recode", pa.int8()),
     ("marital_status", pa.int8()),
+    ("marital_reporting_flag", pa.bool_()),
     ("maternal_hispanic_origin", pa.int8()),
     ("maternal_hispanic", pa.bool_()),
     ("maternal_race_bridged4", pa.int8()),
     ("maternal_race_ethnicity_5", pa.string()),
     ("maternal_race_detail", pa.string()),
+    ("race_bridge_method", pa.string()),
     ("maternal_education_cat4", pa.string()),
     ("prenatal_care_start_month", pa.int16()),
     ("prenatal_care_start_trimester", pa.string()),
@@ -404,6 +406,22 @@ def _harmonize_batch(batch: pa.RecordBatch, year: int) -> pa.Table:
     # === Marital status ===
     marital = _to_int_or_null(_get_col(batch, marital_col), pa.int8())
 
+    # === Marital reporting flag (F_MAR_P: 0=non-reporting, 1=reporting; 2014+ only) ===
+    f_mar_p_raw = _get_col_optional(batch, "F_MAR_P")
+    if f_mar_p_raw is not None:
+        f_mar_p = _to_int_or_null(f_mar_p_raw, pa.int8())
+        marital_rpt_flag = pc.if_else(
+            pc.equal(f_mar_p, pa.scalar(1, type=pa.int8())),
+            pa.scalar(True),
+            pc.if_else(
+                pc.equal(f_mar_p, pa.scalar(0, type=pa.int8())),
+                pa.scalar(False),
+                pa.scalar(None, type=pa.bool_()),
+            ),
+        )
+    else:
+        marital_rpt_flag = pa.nulls(batch.num_rows, type=pa.bool_())
+
     # === Birth order ===
     lbo = _to_int_or_null(_get_col(batch, "LBO_REC"), pa.int8())
     tbo = _to_int_or_null(_get_col(batch, "TBO_REC"), pa.int8())
@@ -432,6 +450,27 @@ def _harmonize_batch(batch: pa.RecordBatch, year: int) -> pa.Table:
     race_eth = pc.if_else(pc.and_(is_nh, pc.equal(race_bridged, 2)), pa.scalar("NH_black"), race_eth)
     race_eth = pc.if_else(pc.and_(is_nh, pc.equal(race_bridged, 3)), pa.scalar("NH_aian"), race_eth)
     race_eth = pc.if_else(pc.and_(is_nh, pc.equal(race_bridged, 4)), pa.scalar("NH_asian_pi"), race_eth)
+
+    # 2020+ race reconstruction: for non-Hispanic births where race_bridged is null,
+    # reconstruct maternal_race_ethnicity_5 from MRACE6 detail codes
+    if is_post2013:
+        needs_fill = pc.and_(is_nh, pc.is_null(race_bridged))
+        rd_int = _to_int_or_null(_get_col(batch, race_detail_col), pa.int16())
+        race_eth = pc.if_else(pc.and_(needs_fill, pc.equal(rd_int, 1)), pa.scalar("NH_white"), race_eth)
+        race_eth = pc.if_else(pc.and_(needs_fill, pc.equal(rd_int, 2)), pa.scalar("NH_black"), race_eth)
+        race_eth = pc.if_else(pc.and_(needs_fill, pc.equal(rd_int, 3)), pa.scalar("NH_aian"), race_eth)
+        race_eth = pc.if_else(
+            pc.and_(needs_fill, pc.or_(pc.equal(rd_int, 4), pc.equal(rd_int, 5))),
+            pa.scalar("NH_asian_pi"), race_eth,
+        )
+        # code 6 (multiracial, ~3%) stays null — cannot be bridged to single group
+
+    # Race bridge method: nchs_bridged for years < 2020, approximate_from_detail for 2020+
+    race_bridge = pc.if_else(
+        pc.less(year_arr, pa.scalar(2020, type=pa.int16())),
+        pa.scalar("nchs_bridged"),
+        pa.scalar("approximate_from_detail"),
+    )
 
     # === Education ===
     meduc = _to_int_or_null(_get_col(batch, "MEDUC"), pa.int8())
@@ -776,8 +815,8 @@ def _harmonize_batch(batch: pa.RecordBatch, year: int) -> pa.Table:
         [
             # Birth-side
             year_arr, restatus, is_foreign, cert_rev, mager, lbo, tbo,
-            marital, hisp_origin, maternal_hisp, race_bridged, race_eth,
-            race_detail, educ_cat4, pn_start_month, pn_start_trim, previs,
+            marital, marital_rpt_flag, hisp_origin, maternal_hisp, race_bridged, race_eth,
+            race_detail, race_bridge, educ_cat4, pn_start_month, pn_start_trim, previs,
             smoke_any, smoke_intensity, cig0_r, diab, chyp, phyp,
             plur, sex, gest_weeks, gest_src, preterm_r3, dbwt, dmeth, apgar5,
             bmi_pp, bmi_pp_r6,

@@ -13,9 +13,9 @@
 
 ## Which file should I use?
 
-- For **birth outcome research** (LBW, preterm, demographic trends): use `output/convenience/natality_v2_residents_only.parquet` (pre-filtered to residents, 69 columns)
-- For **infant mortality research** (IMR, cause-specific mortality, neonatal vs postneonatal): use `output/convenience/natality_v3_linked_residents_only.parquet` (pre-filtered to residents, 79 columns)
-- For analyses that need **foreign residents** or the `restatus` column: use the full `natality_v2_harmonized_derived.parquet` (71 columns) or `natality_v3_linked_harmonized_derived.parquet` (81 columns)
+- For **birth outcome research** (LBW, preterm, demographic trends): use `output/convenience/natality_v2_residents_only.parquet` (pre-filtered to residents, 80 columns)
+- For **infant mortality research** (IMR, cause-specific mortality, neonatal vs postneonatal): use `output/convenience/natality_v3_linked_residents_only.parquet` (pre-filtered to residents, 90 columns)
+- For analyses that need **foreign residents** or the `restatus` column: use the full `natality_v2_harmonized_derived.parquet` (82 columns) or `natality_v3_linked_harmonized_derived.parquet` (92 columns)
 - For **auditing or debugging**: use the yearly `output/yearly_clean/` or `output/linked/` files
 
 ## Are these data nationally representative?
@@ -40,10 +40,10 @@ This matches the residence-based tabulations used in all NCHS publications and i
 
 See `docs/COMPARABILITY.md` for the full list. Variables with **full** comparability (trend-safe 1990-2024):
 
-- `year`, `restatus`, `is_foreign_resident`
-- `marital_status`, `live_birth_order_recode`, `total_birth_order_recode`
+- `year`, `restatus`, `is_foreign_resident`, `certificate_revision`
+- `live_birth_order_recode`, `total_birth_order_recode`
 - `plurality_recode`, `infant_sex`, `birthweight_grams`, `apgar5`
-- Derived: `low_birthweight`, `very_low_birthweight`, `singleton`, `maternal_age_cat`
+- Derived: `birthweight_grams_clean`, `apgar5_clean`, `low_birthweight`, `very_low_birthweight`, `singleton`, `maternal_age_cat`
 
 ## Which variables have known breaks?
 
@@ -51,7 +51,7 @@ Key breaks:
 
 - **Gestation/preterm**: three eras with different measurement methods (LMP → combined → obstetric estimate). Series breaks at 2003 and 2014.
 - **Education/prenatal care/smoking**: effectively revised-only in 2009-2013 public-use files (use `certificate_revision == 'revised_2003'` for consistent analysis).
-- **Race bridging**: approximate for 1990-2002; official NCHS bridged race from 2003.
+- **Race bridging**: approximate for 1990-2002; official NCHS bridged race 2003-2019; reconstructed from MRACE6 detail codes 2020-2024 (multiracial ~3% → null). See `race_bridge_method`.
 - **Maternal age**: 2003 uses an approximate recode from `MAGER41`.
 - **Father education**: null for 1995-2008 (field dropped from public-use files); partial coverage 2009-2010 (2003-revision states only).
 - **Father race/ethnicity**: `NH_other` category only exists for 1990-2002 (code 8 semantic shift).
@@ -71,12 +71,12 @@ Common reasons:
 
 **No, for cohort analyses.** The NCHS user guides explicitly state: "For cohort file use: do not apply the weight." The weight is designed for period (cross-sectional) analyses only. All validation in this project uses unweighted cohort data.
 
-## What is the difference between the 2005-2015 and 2016-2020 linked files?
+## What is the difference between the 2005-2015 and 2016-2023 linked files?
 
 The underlying data format changed:
 
 - **2005-2015**: "denominator-plus" format — birth and death fields are appended in a single record
-- **2016-2020**: "period-cohort" format — birth records (denominator) and death records (numerator) are in separate files, merged by sequence number (CO_SEQNUM)
+- **2016-2023**: "period-cohort" format — birth records (denominator) and death records (numerator) are in separate files, merged by sequence number (CO_SEQNUM)
 
 This project handles both formats transparently. The harmonized output has the same schema regardless of source format.
 
@@ -97,6 +97,48 @@ Example:
 
 > Birth and linked birth-infant death microdata from the National Center for Health Statistics (NCHS), U.S. Centers for Disease Control and Prevention. Harmonized using the U.S. Natality Harmonization Project [URL/DOI].
 
+## Why is `marital_status` null for ~12% of births after 2017?
+
+California stopped providing record-level marital status to NCHS in 2017 due to state statutory restrictions. The data is truly absent at the source — NCHS does not impute it. Use `marital_reporting_flag` (available 2014+) to distinguish non-reporting-state births (`false`) from reporting-state births with genuine unknown status. For trend analyses spanning 2017, either restrict to `marital_reporting_flag == true` or exclude marital status from the model.
+
+## Why should I use `diabetes_any_bool` instead of `diabetes_any`?
+
+The raw `diabetes_any` field uses integer coding: 1=yes, 2=no, **9=unknown**. The sentinel value 9 is not null, so `WHERE diabetes_any IS NOT NULL` silently includes unknowns in your denominator. The derived `diabetes_any_bool` maps 1→true, 2→false, 9→null, making it safe for standard `IS NOT NULL` / complete-case filtering. The same applies to `hypertension_chronic_bool` and `hypertension_gestational_bool`.
+
+## What is `race_bridge_method` and why does it matter?
+
+`maternal_race_ethnicity_5` uses three different derivation methods across eras:
+
+- **1990-2002** (`approximate_pre2003`): crosswalk from MRACE detail codes — approximate, not official NCHS bridging
+- **2003-2019** (`nchs_bridged`): official NCHS bridged race from MBRACE/MRACEREC
+- **2020-2024** (`approximate_from_detail`): reconstructed from MRACE6 detail codes after NCHS dropped bridged race. Multiracial births (MRACE6=06, ~3%) cannot be bridged and map to null.
+
+The `race_bridge_method` column tells you which method was used for each record, so you can document or stratify by derivation era.
+
+## How do I check for missingness breaks before running a trend analysis?
+
+Run `python scripts/05_validate/harmonized_missingness.py`. This produces:
+
+- `harmonized_missingness_by_year.csv`: null rate for every variable by year
+- `harmonized_missingness_breaks.csv`: any variable where the null rate changes by >5 percentage points between adjacent years
+
+Check this before running any multi-year analysis. Known major breaks include marital status at 2017, smoking at 2009, education at 2009, and race at 2020.
+
+## What clinical detail variables are available for 2014+?
+
+The 2014+ revised certificate added several within-era variables not available in earlier years:
+
+- `pre_pregnancy_diabetes`, `gestational_diabetes` (finer-grained than `diabetes_any`)
+- `nicu_admission`, `induction_of_labor`, `breastfed_at_discharge`
+- `weight_gain_pounds` (0-97 pounds, 99→null)
+- `bmi_prepregnancy`, `bmi_prepregnancy_recode6`
+- `smoking_pre_pregnancy_recode6`
+- 12 congenital anomaly booleans, 5 infection booleans
+- `prior_cesarean_count`, `fertility_enhancing_drugs`, `assisted_reproductive_tech`
+- `payment_source_recode` (available 2009+ but full coverage only from 2014+)
+
+All are null for pre-2014 years.
+
 ## Where do I see variable definitions and provenance?
 
 - Machine-readable schema: `metadata/harmonized_schema.csv`
@@ -107,6 +149,8 @@ Example:
 
 See `docs/VALIDATION.md`. Key artifacts:
 
-- `output/validation/external_validation_v1_comparison.csv` (V2 natality: 164 targets)
-- `output/validation/external_validation_v3_linked_comparison.csv` (V3 linked: 14 targets)
-- `output/validation/invariants_report_1990_2023.md` (deterministic consistency checks)
+- `output/validation/external_validation_v1_comparison.csv` (V2 natality: 183 targets)
+- `output/validation/external_validation_v3_linked_comparison.csv` (V3 linked: 35 targets)
+- `output/validation/invariants_report_1990_2024.md` (deterministic consistency checks + null-rate discontinuity detection)
+- `output/validation/harmonized_missingness_by_year.csv` (per-variable per-year null rates)
+- `output/validation/harmonized_missingness_breaks.csv` (>5 ppt year-over-year jumps)

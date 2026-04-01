@@ -40,13 +40,14 @@ Each birth record includes:
 - **Paternal demographics**: age, race/ethnicity, Hispanic origin, education (coverage varies by era)
 - **Prenatal care**: month care began, number of visits
 - **Health behaviors**: smoking during pregnancy (and pre-pregnancy for 2014+)
-- **Medical risk factors**: diabetes, chronic hypertension, gestational hypertension, prior cesarean delivery
+- **Medical risk factors**: diabetes, chronic hypertension, gestational hypertension, prior cesarean delivery (and prior cesarean count for 2014+)
 - **Infections present** (2014+): gonorrhea, syphilis, chlamydia, hepatitis B, hepatitis C
 - **Congenital anomalies** (2014+): 12 conditions including Down syndrome, spina bifida, cleft lip/palate, hypospadias
 - **Fertility treatment** (2014+): fertility-enhancing drugs, assisted reproductive technology
 - **Birth outcomes**: gestational age, birthweight, plurality, sex, Apgar score, delivery method, birth facility, attendant
+- **Clinical detail** (2014+): pre-pregnancy BMI, weight gain during pregnancy, induction of labor, NICU admission, breastfed at discharge, pre-pregnancy diabetes, gestational diabetes
 - **Payment source** (2009+): Medicaid, private insurance, self-pay, other
-- **Administrative**: certificate revision, resident status
+- **Administrative**: certificate revision, resident status, marital status reporting flag (2014+)
 
 Linked files additionally contain:
 

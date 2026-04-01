@@ -1,6 +1,6 @@
 # V1 invariants report
 
-Input: `/Users/yoelplutchok/Desktop/natality-harmonization/output/harmonized/natality_v2_harmonized_derived.parquet`
+Input: `output/harmonized/natality_v2_harmonized_derived.parquet`
 Years: 1990–2024
 - Year summary CSV: `/Users/yoelplutchok/Desktop/natality-harmonization/output/validation/invariants_year_summary_1990_2024.csv`
 
@@ -90,6 +90,38 @@ Years: 1990–2024
 | 2011 | 518,062 | 0 | 0 | 0 |
 | 2012 | 434,448 | 0 | 0 | 0 |
 | 2013 | 345,865 | 0 | 0 | 0 |
+
+## Null-rate discontinuities (>5.0 ppt year-over-year change)
+
+**25 break(s) detected** (informational — these reflect known structural changes, not bugs):
+
+| Variable | Year transition | Null % (from → to) | Delta (ppt) |
+|----------|----------------|---------------------|-------------|
+| `marital_status` | 2016→2017 | 0.0% → 12.2% | +12.2 |
+| `maternal_race_bridged4` | 2019→2020 | 0.0% → 100.0% | +100.0 |
+| `maternal_race_ethnicity_5` | 2019→2020 | 1.0% → 100.0% | +99.0 |
+| `maternal_education_cat4` | 2008→2009 | 1.2% → 32.9% | +31.7 |
+| `maternal_education_cat4` | 2009→2010 | 32.9% → 23.6% | -9.3 |
+| `maternal_education_cat4` | 2010→2011 | 23.6% → 15.2% | -8.3 |
+| `maternal_education_cat4` | 2013→2014 | 10.6% → 4.7% | -5.9 |
+| `prenatal_care_start_month` | 2008→2009 | 0.0% → 31.9% | +31.9 |
+| `prenatal_care_start_month` | 2009→2010 | 31.9% → 22.6% | -9.3 |
+| `prenatal_care_start_month` | 2010→2011 | 22.6% → 14.2% | -8.4 |
+| `prenatal_care_start_month` | 2013→2014 | 9.6% → 3.6% | -6.0 |
+| `smoking_any_during_pregnancy` | 1998→1999 | 20.1% → 14.5% | -5.6 |
+| `smoking_any_during_pregnancy` | 2006→2007 | 19.6% → 6.8% | -12.7 |
+| `smoking_any_during_pregnancy` | 2007→2008 | 6.8% → 12.4% | +5.6 |
+| `smoking_any_during_pregnancy` | 2008→2009 | 12.4% → 44.0% | +31.6 |
+| `smoking_any_during_pregnancy` | 2009→2010 | 44.0% → 34.6% | -9.4 |
+| `smoking_any_during_pregnancy` | 2010→2011 | 34.6% → 20.8% | -13.8 |
+| `smoking_any_during_pregnancy` | 2013→2014 | 13.9% → 5.5% | -8.5 |
+| `smoking_intensity_max_recode6` | 2006→2007 | 5.6% → 0.0% | -5.6 |
+| `smoking_intensity_max_recode6` | 2008→2009 | 0.0% → 31.9% | +31.9 |
+| `smoking_intensity_max_recode6` | 2009→2010 | 31.9% → 22.6% | -9.3 |
+| `smoking_intensity_max_recode6` | 2010→2011 | 22.6% → 14.2% | -8.4 |
+| `smoking_intensity_max_recode6` | 2013→2014 | 9.6% → 3.6% | -6.0 |
+| `father_age` | 2011→2012 | 13.1% → 100.0% | +86.9 |
+| `father_age` | 2013→2014 | 100.0% → 15.7% | -84.3 |
 
 ## Status
 

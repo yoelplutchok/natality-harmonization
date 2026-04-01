@@ -1,82 +1,108 @@
-# How to download NCHS natality documentation and data
+# How to download NCHS natality and linked data
 
-Everything below is the **official NCHS** public-use natality product described in [DATA_SOURCE_V1.md](DATA_SOURCE_V1.md).
+Everything below is the **official NCHS** public-use product described in [DATA_SOURCE_V1.md](DATA_SOURCE_V1.md).
 
 ## Where the files live on the web
 
 1. Open the NCHS portal: **[Vital Statistics Online — Downloadable Data Files](https://www.cdc.gov/nchs/data_access/Vitalstatsonline.htm)**.
-2. Scroll to **Birth Data Files**.
-3. You will see two parallel lists:
-   - **User’s Guide (.pdf)** — documentation for that year’s layout and codes.
-   - **U.S. Data (.zip)** — the microdata (`Nat{year}us.zip`).
+2. Scroll to **Birth Data Files** (natality) or **Linked Birth / Infant Death Data** (linked).
 
-Direct folder pattern (same files as the portal links):
+Direct folder URLs (same files as the portal links):
 
-- Documentation:  
-  `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/`
-- Data zips:  
-  `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/natality/`
+| Product | Documentation | Data |
+|---------|--------------|------|
+| Natality | `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/` | `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/natality/` |
+| Linked (2005–2015) | Same folder or `raw_docs/linked/` | `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/cohortlinkedus/` |
+| Linked (2016–2023) | Same folder or `raw_docs/linked/` | `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/` |
 
-## What to save on your machine (this repo)
+## What to save on your machine
 
 | Kind | Put it here |
-|------|----------------|
-| User Guide PDFs | `raw_docs/` |
+|------|-------------|
+| Natality User Guide PDFs | `raw_docs/` |
+| Linked User Guide PDFs | `raw_docs/linked/` |
 | Natality zips | `raw_data/` |
+| Linked zips | `raw_data/linked/` |
 
-These folders are listed in `.gitignore` for large/binary content so you do not accidentally commit gigabytes of data. The **inventory** in `metadata/file_inventory.csv` is what you version-control instead.
+These folders are in `.gitignore`. The **inventory** in `metadata/file_inventory.csv` is what you version-control instead.
 
-## Exact files for your benchmark years
+## Downloading natality files (1990–2024)
 
-### User guides (PDF)
-
-Save into **`raw_docs/`**:
-
-| File | URL |
-|------|-----|
-| `UserGuide2005.pdf` | https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2005.pdf |
-| `UserGuide2009.pdf` | https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2009.pdf |
-| `UserGuide2009_Addendum.pdf` | https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2009_Addendum.pdf |
-| `UserGuide2010.pdf` | https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2010.pdf |
-| `UserGuide2010_Addendum.pdf` | https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2010_Addendum.pdf |
-| `UserGuide2015.pdf` | https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2015.pdf |
-
-### Data (ZIP)
-
-Save into **`raw_data/`** (example for a small test year; 2015 is among the smaller U.S. annual zips in this period):
-
-| File | URL |
-|------|-----|
-| `Nat2015us.zip` | https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/natality/Nat2015us.zip |
-
-Repeat the same URL pattern for other years: `Nat2005us.zip` … `Nat2014us.zip`.
-
-## Method A — Browser (simplest)
-
-1. Click each URL above (or use the Vital Statistics Online page).
-2. When the PDF or ZIP downloads, **move or save** it into:
-   - `natality-harmonization/raw_docs/` for PDFs  
-   - `natality-harmonization/raw_data/` for ZIPs  
-3. Keep the **exact** filenames (`UserGuide2015.pdf`, `Nat2015us.zip`, …) so they match `metadata/file_inventory.csv`.
-
-## Method B — Terminal (`curl`)
-
-From the project root:
+### User Guides (PDF)
 
 ```bash
 cd raw_docs
-curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2005.pdf"
-curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2009.pdf"
-curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2009_Addendum.pdf"
-curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2010.pdf"
-curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2010_Addendum.pdf"
-curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2015.pdf"
 
-cd ../raw_data
-curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/natality/Nat2015us.zip"
+# 1990–2002: Nat{YYYY}doc.pdf
+for y in $(seq 1990 2002); do
+  curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/Nat${y}doc.pdf"
+done
+
+# 2003–2024: UserGuide{YYYY}.pdf
+for y in $(seq 2003 2024); do
+  curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide${y}.pdf"
+done
+
+# Addenda (2009, 2010)
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2009_Addendum.pdf"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/UserGuide2010_Addendum.pdf"
 ```
 
-If `curl` fails with **SSL certificate** errors (common on some Mac setups), either fix your system trust store or, as a last resort for this known `.gov` host:
+**Note**: Some recent User Guides have variant filenames (e.g., `UserGuide2019-508.pdf`). If a download fails, check the NCHS portal for the exact filename.
+
+### Data (ZIP)
+
+```bash
+cd raw_data
+
+# 1990–1993: Nat{YYYY}.zip (US + territories; import script filters to US)
+for y in $(seq 1990 1993); do
+  curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/natality/Nat${y}.zip"
+done
+
+# 1994–2024: Nat{YYYY}us.zip (US only)
+for y in $(seq 1994 2024); do
+  curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/natality/Nat${y}us.zip"
+done
+```
+
+## Downloading linked files (2005–2023)
+
+```bash
+cd raw_data/linked
+
+# 2005–2015: denominator-plus format
+for yy in 05 06 07 08 09 10 11 12 13 14 15; do
+  curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/cohortlinkedus/LinkCO${yy}US.zip"
+done
+
+# 2016–2023: period-cohort format ({Y+1}PE{Y}CO.zip)
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/2017PE2016CO.zip"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/2018PE2017CO.zip"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/2019PE2018CO.zip"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/2020PE2019CO.zip"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/2021PE2020CO.zip"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/2022PE2021CO.zip"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/2023PE2022CO.zip"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/2024PE2023CO.zip"
+```
+
+### Linked User Guides
+
+```bash
+cd raw_docs/linked
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/cohortlinkedus/LinkCO05Guide.pdf"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/cohortlinkedus/LinkCO10Guide.pdf"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/cohortlinkedus/LinkCO15Guide.pdf"
+# Period-cohort user guides (check NCHS portal for exact filenames)
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/period-cohort-linked/21PE20CO_linkedUG.pdf"
+```
+
+**Note**: Not every linked cohort year has its own user guide. The 2005, 2010, 2015 guides cover the denominator-plus format; the 2020 guide covers the period-cohort format. Positions are consistent within each format era.
+
+## SSL certificate errors
+
+If `curl` fails with SSL certificate errors (common on some Mac setups), either fix your system trust store or, as a last resort for this known `.gov` host:
 
 ```bash
 curl -fkL -O "https://ftp.cdc.gov/…"
@@ -84,49 +110,39 @@ curl -fkL -O "https://ftp.cdc.gov/…"
 
 (`-k` disables certificate verification; use only if you understand the tradeoff.)
 
-## List the file inside a zip (without unpacking the whole thing)
+## Listing the file inside a zip
 
-The ASCII file inside is **very large** once uncompressed (billions of characters). You only need the **name** for the inventory:
-
-```bash
-cd raw_data
-unzip -l Nat2015us.zip
-```
-
-Example (2015 U.S. file): one text file named like `Nat2015PublicUS.c20160517.r20160907.txt`.
-
-Unzipping is **optional**. The import scripts in this repo stream directly from the zip, so you do **not** need to unpack the multi-GB ASCII file just to parse it.
-
-If you still want an uncompressed local copy (needs **several GB** free disk space):
+The ASCII file inside is very large once uncompressed. You only need the **name** for the inventory:
 
 ```bash
-unzip Nat2015us.zip
+unzip -l raw_data/Nat2015us.zip
 ```
+
+Unzipping is **optional**. The import scripts stream directly from the zip.
+
+## Zip compression caveats
+
+Some years use compression methods that Python's `zipfile` cannot stream. The import scripts detect this and fall back to `7z` automatically.
+
+| Years | Method | Needs `7z`? |
+|-------|--------|-------------|
+| 1990–2008, 2014, 2018–2019, 2021–2024 | deflate | No |
+| 2009–2013, 2016–2017, 2020 | deflate64 | Yes |
+| 2015 | PPMd | Yes |
+| Linked 2005–2012, 2015, 2021–2023 | deflate | No |
+| Linked 2013, 2016–2020 | deflate64 | Yes |
+| Linked 2014 | LZMA | Yes |
+
+Install `7z`: `brew install p7zip` (macOS) or `apt install p7zip-full` (Linux).
 
 ## Update `metadata/file_inventory.csv`
 
 For each year row:
 
-1. **`imported`** — set to `true` when the **`Nat{year}us.zip`** for that year is present under `raw_data/` (and you intend to use it). If you only downloaded PDFs so far, leave `false`.
-2. **`notes`** — record:
-   - that the User Guide (and addendum if any) is in `raw_docs/`
-   - the **inner** ASCII filename from `unzip -l` once you have the zip
-   - optional: download date
+1. **`imported`** — set to `true` when the zip is present under `raw_data/` (or `raw_data/linked/`).
+2. **`notes`** — record the inner ASCII filename from `unzip -l`, the documentation filename, and optionally the download date.
 
-Commit the CSV; do **not** commit the zip or huge `.txt` unless you deliberately use Git LFS or another data hosting approach.
-
-### Zip compression caveats (deflate64, PPMd)
-
-Some years use zip compression methods that Python’s `zipfile` cannot stream:
-
-- **2009–2013**: **deflate64** (zip method 9) → requires `7z`
-- **2015**: **PPMd** (zip method 98) → requires `7z`
-
-Years **2005–2008** and **2014** use standard **deflate** and stream fine with Python alone. The import script automatically falls back to `7z` when needed (install: `brew install p7zip`).
-
-### Status in this repository
-
-As of the last automated fetch, **2005–2015** User Guides (including 2009/2010 addenda) and all **`Nat{year}us.zip`** files are present locally; `metadata/file_inventory.csv` is filled with inner member names (e.g. `Nat2005us.dat` for 2005–2008, revision-tagged names for 2009–2013, `.txt` for 2014–2015). Re-download from NCHS if they post a revised zip.
+Commit the CSV; do **not** commit the zips or the large text files.
 
 ## Terms of use
 

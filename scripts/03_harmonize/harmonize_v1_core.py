@@ -426,11 +426,13 @@ def main() -> None:
             ("live_birth_order_recode", pa.int8()),
             ("total_birth_order_recode", pa.int8()),
             ("marital_status", pa.int8()),
+            ("marital_reporting_flag", pa.bool_()),
             ("maternal_hispanic_origin", pa.int8()),
             ("maternal_hispanic", pa.bool_()),
             ("maternal_race_bridged4", pa.int8()),
             ("maternal_race_ethnicity_5", pa.string()),
             ("maternal_race_detail", pa.string()),
+            ("race_bridge_method", pa.string()),
             ("maternal_education_cat4", pa.string()),
             ("prenatal_care_start_month", pa.int16()),
             ("prenatal_care_start_trimester", pa.string()),
@@ -540,6 +542,7 @@ def main() -> None:
 
                     # Marital status
                     marital = _to_int_or_null(_get_col(batch, "DMAR"), pa.int8())
+                    marital_rpt_flag = pa.nulls(batch.num_rows, type=pa.bool_())
 
                     # Birth order (9-category recodes → same semantics as LBO_REC/TBO_REC)
                     lbo = _to_int_or_null(_get_col(batch, "LIVORD9"), pa.int8())
@@ -574,6 +577,10 @@ def main() -> None:
                     race_eth = pc.if_else(pc.and_(is_nh, pc.equal(race_bridged, 2)), pa.scalar("NH_black"), race_eth)
                     race_eth = pc.if_else(pc.and_(is_nh, pc.equal(race_bridged, 3)), pa.scalar("NH_aian"), race_eth)
                     race_eth = pc.if_else(pc.and_(is_nh, pc.equal(race_bridged, 4)), pa.scalar("NH_asian_pi"), race_eth)
+
+                    race_bridge = pc.if_else(
+                        pc.is_null(year_arr), null_s, pa.scalar("approximate_pre2003"),
+                    )
 
                     # Education: years of schooling (00-17) → cat4
                     dmeduc = _to_int_or_null(_get_col(batch, "DMEDUC"), pa.int16())
@@ -739,6 +746,22 @@ def main() -> None:
 
                     marital = _to_int_or_null(_get_col(batch, marital_col), pa.int8())
 
+                    # Marital reporting flag (F_MAR_P: 0=non-reporting state, 1=reporting; 2014+ only)
+                    f_mar_p_raw = _get_col_optional(batch, "F_MAR_P")
+                    if f_mar_p_raw is not None:
+                        f_mar_p = _to_int_or_null(f_mar_p_raw, pa.int8())
+                        marital_rpt_flag = pc.if_else(
+                            pc.equal(f_mar_p, pa.scalar(1, type=pa.int8())),
+                            pa.scalar(True),
+                            pc.if_else(
+                                pc.equal(f_mar_p, pa.scalar(0, type=pa.int8())),
+                                pa.scalar(False),
+                                pa.scalar(None, type=pa.bool_()),
+                            ),
+                        )
+                    else:
+                        marital_rpt_flag = pa.nulls(batch.num_rows, type=pa.bool_())
+
                     # Birth order recodes
                     lbo = _to_int_or_null(_get_col(batch, "LBO_REC"), pa.int8())
                     tbo = _to_int_or_null(_get_col(batch, "TBO_REC"), pa.int8())
@@ -773,6 +796,28 @@ def main() -> None:
                     # Race detail (within-era)
                     race_detail_raw = _get_col(batch, race_detail_col)
                     race_detail = _to_str_or_null(race_detail_raw)
+
+                    # For 2020+, MBRACE is null (NCHS dropped bridged race).
+                    # Reconstruct race_eth from MRACE6 detail codes for non-Hispanic births.
+                    # MRACE6: 01=White, 02=Black, 03=AIAN, 04=Asian, 05=NHOPI, 06=Multiracial(→null)
+                    if is_post2013:
+                        needs_fill = pc.and_(is_nh, pc.is_null(race_bridged))
+                        rd_int = _to_int_or_null(race_detail_raw, pa.int16())
+                        race_eth = pc.if_else(pc.and_(needs_fill, pc.equal(rd_int, 1)), pa.scalar("NH_white"), race_eth)
+                        race_eth = pc.if_else(pc.and_(needs_fill, pc.equal(rd_int, 2)), pa.scalar("NH_black"), race_eth)
+                        race_eth = pc.if_else(pc.and_(needs_fill, pc.equal(rd_int, 3)), pa.scalar("NH_aian"), race_eth)
+                        race_eth = pc.if_else(
+                            pc.and_(needs_fill, pc.or_(pc.equal(rd_int, 4), pc.equal(rd_int, 5))),
+                            pa.scalar("NH_asian_pi"), race_eth,
+                        )
+                        # code 6 (multiracial, ~3%) stays null — cannot be bridged to single group
+
+                    # Race bridge method: nchs_bridged for 2003-2019, approximate_from_detail for 2020+
+                    race_bridge = pc.if_else(
+                        pc.less(year_arr, pa.scalar(2020, type=pa.int16())),
+                        pa.scalar("nchs_bridged"),
+                        pa.scalar("approximate_from_detail"),
+                    )
 
                     # Education (cat4) — revised MEDUC vs unrevised MEDUC_REC
                     meduc = _to_int_or_null(_get_col(batch, "MEDUC"), pa.int8())
@@ -1146,11 +1191,13 @@ def main() -> None:
                         lbo,
                         tbo,
                         marital,
+                        marital_rpt_flag,
                         hisp_origin,
                         maternal_hisp,
                         race_bridged,
                         race_eth,
                         race_detail,
+                        race_bridge,
                         educ_cat4,
                         pn_start_month,
                         pn_start_trim,
