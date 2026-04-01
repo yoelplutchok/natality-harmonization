@@ -22,8 +22,8 @@ Harmonized U.S. natality microdata for **1990–2024** with a stable 69-column h
 
 - **Years covered**: 1990–2024 (35 years natality); 2005–2023 (19 years linked birth-infant death)
 - **Birth records**: 138,819,655 total (natality V2); 74,943,824 (linked V3)
-- **Harmonized columns**: 69 natality + 13 derived = 82 (V2); 74 + 13 derived = 87 including death-side (V3 linked)
-- **Convenience outputs**: `output/convenience/` — residents-only subsets (134.95M V2, 63.86M V3 linked)
+- **Harmonized columns**: 69 natality + 13 derived = 82 (V2); 76 + 16 derived = 92 including death-side (V3 linked)
+- **Convenience outputs**: `output/convenience/` — residents-only subsets (138.58M V2, 74.79M V3 linked)
 - **External validation**: `output/validation/external_validation_v1_comparison.csv` (183 targets, 1990–2024, all pass); linked V3: 35/35 targets pass (2005/2010/2015/2020-2023 user guides — births, deaths, IMR, neonatal/postneonatal deaths and IMR)
 
 ## Repository structure

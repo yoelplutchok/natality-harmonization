@@ -153,7 +153,7 @@ Implemented by:
 | `postneonatal_death` | Postneonatal death (28–364 days) | bool | `infant_death AND age_at_death_days >= 28` |
 | `cause_group` | Standard infant cause-of-death grouping | string | 13 categories based on ICD-10 underlying cause: `congenital_anomalies` (Q00–Q99), `short_gestation_lbw` (P07), `sids` (R95), `maternal_complications` (P01), `placenta_cord_membranes` (P02), `unintentional_injuries` (V01–X59), `bacterial_sepsis` (P36), `respiratory_distress` (P22), `nec` (P77), `circulatory` (I00–I99), `assault` (X85–Y09), `other_perinatal` (remaining P00–P96), `other` (all else). Null for survivors |
 
-Plus birth-side derived columns: `gestational_age_weeks_clean`, `birthweight_grams_clean`, `apgar5_clean`, `low_birthweight`, `very_low_birthweight`, `preterm_lt37`, `very_preterm_lt32`, `singleton`, `maternal_age_cat`, `father_age_cat`. (Note: the V2-only `diabetes_any_bool`, `hypertension_chronic_bool`, `hypertension_gestational_bool` are not yet included in V3 linked derived.)
+Plus birth-side derived columns: `gestational_age_weeks_clean`, `birthweight_grams_clean`, `apgar5_clean`, `low_birthweight`, `very_low_birthweight`, `preterm_lt37`, `very_preterm_lt32`, `singleton`, `maternal_age_cat`, `father_age_cat`, `diabetes_any_bool`, `hypertension_chronic_bool`, `hypertension_gestational_bool`.
 
 ## Next
 
