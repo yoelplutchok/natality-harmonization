@@ -217,15 +217,27 @@ Applied in response to the `AUDIT_REPORT_FRESH_5.md` findings. Every one of the 
 ### V5-FIX-1 Committed the uncommitted working tree so PROVENANCE hash reproduces the shipped parquets (Audit v5 Finding 1)
 
 - **What was wrong**: PROVENANCE.md listed `Pipeline git hash: 4016cc8`, which was HEAD, but HEAD was 680 lines behind the working tree that actually built the Apr 23 parquets. A third party checking out that hash would not reproduce the published SHA-256s.
-- **What was done**: committed every pipeline/validation/doc edit that was live when the 2026-04-23 harmonized + convenience parquets were built. After commit, HEAD now contains the code that produced the Apr 23 parquets → SHA-256s in PROVENANCE match a reachable commit.
+- **What was done**:
+  1. Committed every pipeline/validation/doc edit that was live when the 2026-04-23 harmonized + convenience parquets were built. After commit, HEAD contains the code that produced those parquets' **content**. Commit hash: `098f958`.
+  2. Re-ran `scripts/06_convenience/write_residents_only.py` so the embedded `pipeline_git_hash` metadata inside the convenience parquets reads `098f958` (previously `4016cc8`, which pre-dated the commit). Row counts unchanged (138,582,904 V2; 74,785,708 V3 linked); filter and schema unchanged; only the embedded metadata timestamp + git hash differ from the 2026-04-23 build.
+  3. Regenerated `output/convenience/PROVENANCE.md` with the new SHA-256s:
+     - `natality_v2_residents_only.parquet`: `0f0dc844c4b0f9ec03ca302f71d6f1f1b4b05ffaf0b42ad108346217c5cdb0ae`
+     - `natality_v3_linked_residents_only.parquet`: `ef2eb1a2eb678c9273dbbfa4b7f830c96054a3fea56cc835443c274d7eb0c2e1`
+     The old SHA-256s (`13c4fdff…` and `8bd5b019…`) are preserved in PROVENANCE.md's "Previous build" block for anyone verifying against the existing Zenodo 10.5281/zenodo.19363075 download.
+- **Zenodo action needed (user)**: the new SHA-256s apply to a freshly reproduced copy; the SHA-256s on the current Zenodo deposit reflect the superseded build. Publish a new Zenodo version with the rebuilt parquets + new PROVENANCE.md if you want downloaders to bit-verify against HEAD. The content is equivalent either way.
 - **Verify**:
   ```bash
-  $ git diff --stat 4016cc8 -- scripts/ metadata/ | tail -1   # before: 680 changes; after this fix: 0
-  $ head -5 output/convenience/PROVENANCE.md | grep hash
-  - **Pipeline git hash**: `<new_hash>`
-  $ git show --stat <new_hash> -- scripts/ metadata/ | head  # post-commit code matches scripts mtimes
+  $ git log -1 --format='%H' HEAD
+  098f958…
+  $ grep 'Pipeline git hash' output/convenience/PROVENANCE.md
+  - **Pipeline git hash**: `098f958`
+  $ python -c "
+  import pyarrow.parquet as pq
+  md = pq.read_metadata('output/convenience/natality_v2_residents_only.parquet').metadata
+  print(md[b'pipeline_git_hash'].decode())"
+  098f958
+  $ shasum -a 256 output/convenience/*.parquet   # matches PROVENANCE.md
   ```
-- **SHA-256s unchanged**: the data itself did not change; only the attribution of which commit produced it. The SHA-256s for `natality_v2_residents_only.parquet` (`13c4fdff…`) and `natality_v3_linked_residents_only.parquet` (`8bd5b019…`) continue to match.
 
 ### V5-FIX-2 V3-aware invariant validator + documented V2/V3 2009–2010 divergence (Audit v5 Finding 2)
 
