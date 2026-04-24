@@ -166,16 +166,18 @@ def main() -> None:
         pneo_death = batch.column(5)
 
         # Resident mask
-        res_mask = pc.and_(pc.is_valid(foreign), pc.invert(foreign))
+        res_mask = pc.fill_null(pc.and_(pc.is_valid(foreign), pc.invert(foreign)), False)
 
         for yr in pc.unique(year_arr).to_pylist():
+            if yr is None:
+                continue
             yr = int(yr)
             if yr not in accum:
                 accum[yr] = YearAccum()
             a = accum[yr]
 
             is_y = pc.equal(year_arr, yr)
-            m_res = pc.and_(res_mask, is_y)
+            m_res = pc.fill_null(pc.and_(res_mask, is_y), False)
 
             # Births
             a.births += int(pc.sum(pc.cast(m_res, pa.int64())).as_py() or 0)

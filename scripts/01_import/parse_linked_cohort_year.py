@@ -96,9 +96,12 @@ def _read_numerator_deaths(
     zip_path: Path,
     member: str,
     cohort_year: int,
-) -> dict[str, dict[str, str]]:
-    """Read numerator, filter to DOB_YY=cohort_year, return dict keyed by CO_SEQNUM."""
-    deaths: dict[str, dict[str, str]] = {}
+) -> dict[tuple[str, str], dict[str, str]]:
+    """Read numerator, filter to DOB_YY=cohort_year, return dict keyed by
+    (CO_SEQNUM, CO_YOD) — the composite key documented in 21PE20CO_linkedUG.pdf
+    as the correct merge key (AUDIT D7).  CO_YOD is at positions 372-375
+    (year of death, 4 digits)."""
+    deaths: dict[tuple[str, str], dict[str, str]] = {}
     cohort_str = str(cohort_year)
 
     with zipfile.ZipFile(zip_path) as zf:
@@ -111,14 +114,15 @@ def _read_numerator_deaths(
                 if dob_yy != cohort_str:
                     continue
 
-                seqnum = _slice(rec, 365, 371).strip().lstrip("0")
+                seqnum = _slice(rec, 365, 371).strip()
+                co_yod = _slice(rec, 372, 375).strip()
                 if not seqnum:
                     continue
 
                 d: dict[str, str] = {}
                 for name, a, b in NUMERATOR_DEATH_FIELDS:
                     d[name] = _slice(rec, a, b)
-                deaths[seqnum] = d
+                deaths[(seqnum, co_yod)] = d
 
     return deaths
 
@@ -151,8 +155,8 @@ def run_parse(
     denom_member = members[cohort_str]["denom"]
     print(f"Denominator: {denom_member}", file=sys.stderr)
 
-    # Build death lookup from both numerators
-    death_lookup: dict[str, dict[str, str]] = {}
+    # Build death lookup from both numerators — composite key (seqnum, co_yod).
+    death_lookup: dict[tuple[str, str], dict[str, str]] = {}
 
     # Same-year numerator (deaths in cohort_year)
     if cohort_str in members and "numer" in members[cohort_str]:
@@ -162,12 +166,22 @@ def run_parse(
         print(f"  {len(d1):,} deaths in {cohort_year} born in {cohort_year}", file=sys.stderr)
         death_lookup.update(d1)
 
-    # Next-year numerator (deaths in cohort_year+1)
+    # Next-year numerator (deaths in cohort_year+1) — AUDIT D7: assert that the
+    # same-year and next-year keysets are disjoint.  They must be, because the
+    # composite key includes year-of-death; a collision would indicate a data
+    # error upstream that would silently overwrite the same-year record.
     if next_str in members and "numer" in members[next_str]:
         numer2 = members[next_str]["numer"]
         print(f"Reading {numer2} (next-year deaths) ...", file=sys.stderr)
         d2 = _read_numerator_deaths(zip_path, numer2, cohort_year)
         print(f"  {len(d2):,} deaths in {cohort_year+1} born in {cohort_year}", file=sys.stderr)
+        overlap = set(death_lookup).intersection(d2)
+        if overlap:
+            raise RuntimeError(
+                f"CO_SEQNUM+CO_YOD collision between same-year and next-year "
+                f"numerator files for cohort {cohort_year}: {len(overlap)} overlapping keys. "
+                f"First few: {list(overlap)[:5]}"
+            )
         death_lookup.update(d2)
 
     total_deaths = len(death_lookup)
@@ -177,10 +191,16 @@ def run_parse(
     birth_fields = LINKED_BIRTH_2014_2020_FIELDS
     # Build blank-death template with space-padded strings (consistent with
     # 2005-2015 denominator-plus format where survivor records have blank bytes).
+    # EXCEPTION: RECWT is filled with "1.000000" for survivors to match the NCHS
+    # 2005-2015 convention (where denominator-plus survivor rows carry RECWT=1.000000).
+    # Leaving RECWT blank breaks the "every survivor has weight 1.0" invariant.
     blank_death: dict[str, str] = {}
     for name, a, b in NUMERATOR_DEATH_FIELDS:
         field_len = b - a + 1
-        blank_death[name] = " " * field_len
+        if name == "RECWT":
+            blank_death[name] = "1.000000"[:field_len].ljust(field_len)
+        else:
+            blank_death[name] = " " * field_len
 
     writer: pq.ParquetWriter | None = None
     buffer: list[dict[str, str | int]] = []
@@ -200,10 +220,21 @@ def run_parse(
                 for name, a, b in birth_fields:
                     row[name] = _slice(rec, a, b)
 
-                # Look up death fields by CO_SEQNUM
-                seqnum = _slice(rec, 365, 371).strip().lstrip("0")
-                if seqnum and seqnum in death_lookup:
-                    row.update(death_lookup[seqnum])
+                # Look up death fields by (CO_SEQNUM, CO_YOD).  The denominator
+                # doesn't carry CO_YOD (births don't have a year-of-death), so
+                # we try both the cohort year and the next year in turn —
+                # matching NCHS's documented merge approach (AUDIT D7).
+                seqnum = _slice(rec, 365, 371).strip()
+                match = None
+                if seqnum:
+                    k1 = (seqnum, cohort_str)
+                    k2 = (seqnum, next_str)
+                    if k1 in death_lookup:
+                        match = death_lookup[k1]
+                    elif k2 in death_lookup:
+                        match = death_lookup[k2]
+                if match is not None:
+                    row.update(match)
                     matched_deaths += 1
                 else:
                     # Survivor: set FLGND to blank (consistent with 2014-2015 convention)

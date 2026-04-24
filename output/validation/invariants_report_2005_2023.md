@@ -1,10 +1,12 @@
 # V1 invariants report
 
-Input: `output/harmonized/natality_v2_harmonized_derived.parquet`
-Years: 1990–2024
-- Year summary CSV: `output/validation/invariants_year_summary_1990_2024.csv`
+Input: `output/harmonized/natality_v3_linked_harmonized_derived.parquet`
+Years: 2005–2023
+- Year summary CSV: `output/validation/invariants_year_summary_2005_2023.csv`
 
-Mode: **V2 natality** (auto-detected from schema)
+Mode: **V3 linked** (auto-detected from schema)
+
+In V3 linked mode, three V2-only structural-coverage invariants (`unrevised_2009_2013_has_educ`, `unrevised_2009_2013_has_pnmonth`, `unrevised_2009_2013_has_smokeint`) are **skipped** because the linked denominator-plus layout for 2005–2013 retains MEDUC_REC/MPCB/CIG_1-3 bytes that the natality 2009–2010 public-use layout drops. See `docs/COMPARABILITY.md` §"V3 linked vs V2 natality: 2009–2010 unrevised-cert field retention". Also, `record_weight_null_when_survivor` is allowed up to 2 (upstream NCHS quirk: 1 row in 2014 + 1 in 2015).
 
 ## Invariant checks (should all be 0 unless a known exception applies)
 
@@ -38,45 +40,30 @@ Mode: **V2 natality** (auto-detected from schema)
 - `race_eth_null_when_hisp_false_and_race_detail_valid`: 0
 - `race_eth_null_when_hisp_true`: 0
 - `record_weight_null_when_death`: 0
-- `record_weight_null_when_survivor`: 0
+- `record_weight_null_when_survivor`: 2 _(within known-exception budget of 2)_
 - `singleton_logic_mismatch`: 0
 - `smoke_any_false_bad_int`: 0
 - `smoke_any_true_bad_int`: 0
 - `smoke_int_0_not_false`: 0
 - `smoke_int_1_5_not_true`: 0
 - `smoke_int_6_not_null_any`: 0
-- `unrevised_2009_2013_has_educ`: 0
-- `unrevised_2009_2013_has_pnmonth`: 0
-- `unrevised_2009_2013_has_smokeint`: 0
+- `unrevised_2009_2013_has_educ`: 2012896 _(skipped — V2-only, see §4.2 note)_
+- `unrevised_2009_2013_has_pnmonth`: 2026581 _(skipped — V2-only, see §4.2 note)_
+- `unrevised_2009_2013_has_smokeint`: 2026581 _(skipped — V2-only, see §4.2 note)_
 - `year_outside_expected_range`: 0
 
 ## Certificate revision by year (counts)
 
 | year | total | revised_2003 | unrevised_1989 | unknown |
 |---:|---:|---:|---:|---:|
-| 1990 | 4,162,917 | 0 | 4,162,917 | 0 |
-| 1991 | 4,115,342 | 0 | 4,115,342 | 0 |
-| 1992 | 4,069,428 | 0 | 4,069,428 | 0 |
-| 1993 | 4,004,523 | 0 | 4,004,523 | 0 |
-| 1994 | 3,956,925 | 0 | 3,956,925 | 0 |
-| 1995 | 3,903,012 | 0 | 3,903,012 | 0 |
-| 1996 | 3,894,874 | 0 | 3,894,874 | 0 |
-| 1997 | 3,884,329 | 0 | 3,884,329 | 0 |
-| 1998 | 3,945,192 | 0 | 3,945,192 | 0 |
-| 1999 | 3,963,465 | 0 | 3,963,465 | 0 |
-| 2000 | 4,063,823 | 0 | 4,063,823 | 0 |
-| 2001 | 4,031,531 | 0 | 4,031,531 | 0 |
-| 2002 | 4,027,376 | 0 | 4,027,376 | 0 |
-| 2003 | 4,096,092 | 225,965 | 3,870,127 | 0 |
-| 2004 | 4,118,907 | 758,833 | 3,360,074 | 0 |
-| 2005 | 4,145,619 | 1,275,018 | 2,870,601 | 0 |
-| 2006 | 4,273,225 | 2,080,152 | 2,193,073 | 0 |
+| 2005 | 4,145,887 | 1,275,242 | 2,870,645 | 0 |
+| 2006 | 4,273,264 | 2,080,175 | 2,193,089 | 0 |
 | 2007 | 4,324,008 | 2,388,236 | 1,687,076 | 248,696 |
-| 2008 | 4,255,156 | 2,761,379 | 1,342,509 | 151,268 |
+| 2008 | 4,255,188 | 2,761,407 | 1,342,513 | 151,268 |
 | 2009 | 4,137,836 | 2,816,719 | 1,219,573 | 101,544 |
 | 2010 | 4,007,105 | 3,101,037 | 807,008 | 99,060 |
-| 2011 | 3,961,220 | 3,398,489 | 518,062 | 44,669 |
-| 2012 | 3,960,796 | 3,495,710 | 434,448 | 30,638 |
+| 2011 | 3,961,221 | 3,398,490 | 518,062 | 44,669 |
+| 2012 | 3,960,797 | 3,495,711 | 434,448 | 30,638 |
 | 2013 | 3,940,764 | 3,564,417 | 345,865 | 30,482 |
 | 2014 | 3,998,175 | 3,998,175 | 0 | 0 |
 | 2015 | 3,988,733 | 3,988,733 | 0 | 0 |
@@ -88,51 +75,38 @@ Mode: **V2 natality** (auto-detected from schema)
 | 2021 | 3,669,928 | 3,669,928 | 0 | 0 |
 | 2022 | 3,676,029 | 3,676,029 | 0 | 0 |
 | 2023 | 3,605,081 | 3,605,081 | 0 | 0 |
-| 2024 | 3,638,436 | 3,638,436 | 0 | 0 |
 
 ## 2009–2013 unrevised coverage checks (should be 0 non-null)
 
 | year | unrevised rows | educ non-null | pn month non-null | smoke intensity non-null |
 |---:|---:|---:|---:|---:|
-| 2009 | 1,219,573 | 0 | 0 | 0 |
-| 2010 | 807,008 | 0 | 0 | 0 |
+| 2009 | 1,219,573 | 1,210,388 | 1,219,573 | 1,219,573 |
+| 2010 | 807,008 | 802,508 | 807,008 | 807,008 |
 | 2011 | 518,062 | 0 | 0 | 0 |
 | 2012 | 434,448 | 0 | 0 | 0 |
 | 2013 | 345,865 | 0 | 0 | 0 |
 
 ## Null-rate discontinuities (>5.0 ppt year-over-year change)
 
-**34 break(s) detected** (informational — these reflect known structural changes, not bugs):
+**22 break(s) detected** (informational — these reflect known structural changes, not bugs):
 
 | Variable | Year transition | Null % (from → to) | Delta (ppt) |
 |----------|----------------|---------------------|-------------|
 | `marital_status` | 2016→2017 | 0.0% → 12.2% | +12.2 |
 | `maternal_race_bridged4` | 2019→2020 | 0.0% → 100.0% | +100.0 |
-| `maternal_education_cat4` | 2008→2009 | 1.2% → 32.9% | +31.7 |
-| `maternal_education_cat4` | 2009→2010 | 32.9% → 23.6% | -9.3 |
-| `maternal_education_cat4` | 2010→2011 | 23.6% → 15.2% | -8.3 |
+| `maternal_education_cat4` | 2010→2011 | 1.1% → 15.2% | +14.1 |
 | `maternal_education_cat4` | 2013→2014 | 10.6% → 4.7% | -5.9 |
-| `prenatal_care_start_month` | 2008→2009 | 0.0% → 31.9% | +31.9 |
-| `prenatal_care_start_month` | 2009→2010 | 31.9% → 22.6% | -9.3 |
-| `prenatal_care_start_month` | 2010→2011 | 22.6% → 14.2% | -8.4 |
+| `prenatal_care_start_month` | 2010→2011 | 0.0% → 14.2% | +14.2 |
 | `prenatal_care_start_month` | 2013→2014 | 9.6% → 3.6% | -6.0 |
-| `smoking_any_during_pregnancy` | 1998→1999 | 20.1% → 14.5% | -5.6 |
 | `smoking_any_during_pregnancy` | 2006→2007 | 19.6% → 6.8% | -12.7 |
 | `smoking_any_during_pregnancy` | 2007→2008 | 6.8% → 12.4% | +5.6 |
-| `smoking_any_during_pregnancy` | 2008→2009 | 12.4% → 44.0% | +31.6 |
-| `smoking_any_during_pregnancy` | 2009→2010 | 44.0% → 34.6% | -9.4 |
-| `smoking_any_during_pregnancy` | 2010→2011 | 34.6% → 20.8% | -13.8 |
+| `smoking_any_during_pregnancy` | 2010→2011 | 12.1% → 20.8% | +8.7 |
 | `smoking_any_during_pregnancy` | 2013→2014 | 13.9% → 5.5% | -8.5 |
 | `smoking_intensity_max_recode6` | 2006→2007 | 5.6% → 0.0% | -5.6 |
-| `smoking_intensity_max_recode6` | 2008→2009 | 0.0% → 31.9% | +31.9 |
-| `smoking_intensity_max_recode6` | 2009→2010 | 31.9% → 22.6% | -9.3 |
-| `smoking_intensity_max_recode6` | 2010→2011 | 22.6% → 14.2% | -8.4 |
+| `smoking_intensity_max_recode6` | 2010→2011 | 0.0% → 14.2% | +14.2 |
 | `smoking_intensity_max_recode6` | 2013→2014 | 9.6% → 3.6% | -6.0 |
 | `father_age` | 2011→2012 | 13.1% → 23.1% | +10.0 |
 | `father_age` | 2013→2014 | 21.0% → 15.7% | -5.2 |
-| `maternal_race_detail` | 2002→2003 | 0.0% → 5.5% | +5.5 |
-| `maternal_race_detail` | 2003→2004 | 5.5% → 18.4% | +12.9 |
-| `maternal_race_detail` | 2004→2005 | 18.4% → 30.8% | +12.3 |
 | `maternal_race_detail` | 2005→2006 | 30.8% → 48.7% | +17.9 |
 | `maternal_race_detail` | 2006→2007 | 48.7% → 61.0% | +12.3 |
 | `maternal_race_detail` | 2007→2008 | 61.0% → 68.5% | +7.5 |

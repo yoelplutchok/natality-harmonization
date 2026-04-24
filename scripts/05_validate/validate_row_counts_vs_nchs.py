@@ -67,7 +67,7 @@ def _record_len_for_year(year: int) -> int:
         return 1500
     if 2006 <= year <= 2013:
         return 775
-    if 2014 <= year <= 2023:
+    if 2014 <= year <= 2024:
         return 1345
     raise ValueError(f"Unsupported year: {year}")
 

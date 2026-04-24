@@ -158,10 +158,10 @@ cesarean_rate_pct,1998,resident,21.152252,21.200000,0.200000,-0.047748,pass,1,NV
 cesarean_rate_pct,2000,resident,22.915426,22.900000,0.200000,0.015426,pass,1,NVSR Vol. 63 No. 6 Table A (birth certificate data 1990-2013),Cesarean delivery rate.
 cesarean_rate_pct,2002,resident,26.081355,26.100000,0.200000,-0.018645,pass,1,NVSR Vol. 63 No. 6 Table A (birth certificate data 1990-2013),Cesarean delivery rate.
 cesarean_rate_pct,2003,resident,27.508803,27.500000,0.200000,0.008803,pass,1,NVSR Vol. 63 No. 6 Table A (birth certificate data 1990-2013),Cesarean delivery rate (still DELMETH5-style coding; DMETH_REC starts 2005).
-cesarean_rate_pct,2005,resident,30.290950,30.300000,0.200000,-0.009050,pass,1,NVSR Vol. 63 No. 6 Table A (birth certificate data 1990-2013),Cesarean delivery rate.
-cesarean_rate_pct,2008,resident,32.342872,32.300000,0.200000,0.042872,pass,1,NVSR Vol. 63 No. 6 Table A (birth certificate data 1990-2013),Cesarean delivery rate.
-cesarean_rate_pct,2010,resident,32.810518,32.800000,0.200000,0.010518,pass,1,NVSR Vol. 63 No. 6 Table A (birth certificate data 1990-2013),Cesarean delivery rate.
-cesarean_rate_pct,2013,resident,32.703424,32.700000,0.200000,0.003424,pass,1,NVSR Vol. 63 No. 6 Table A (birth certificate data 1990-2013; preliminary 2013),Cesarean delivery rate.
+cesarean_rate_pct,2005,resident,30.290950,30.300000,0.200000,-0.009050,pass,1,Births: Final Data for 2005 (NVSR Vol. 56 No. 6); also NVSR Vol. 63 No. 6 Table A,Cesarean delivery rate. PDF: raw_docs/nvsr/Births_Final_Data_2005.pdf.
+cesarean_rate_pct,2008,resident,32.342872,32.300000,0.200000,0.042872,pass,1,Births: Final Data for 2008 (NVSR Vol. 59 No. 1); also NVSR Vol. 63 No. 6 Table A,Cesarean delivery rate.
+cesarean_rate_pct,2010,resident,32.810518,32.800000,0.200000,0.010518,pass,1,Births: Final Data for 2010 (NVSR Vol. 61 No. 1); also NVSR Vol. 63 No. 6 Table A,Cesarean delivery rate.
+cesarean_rate_pct,2013,resident,32.703424,32.700000,0.200000,0.003424,pass,1,Births: Final Data for 2013 (NVSR Vol. 64 No. 1); also NVSR Vol. 63 No. 6 Table A (preliminary),Cesarean delivery rate.
 cesarean_rate_pct,2014,resident,32.238684,32.200000,0.200000,0.038684,pass,1,NVSR Vol. 64 No. 12 (Births: Final Data for 2014),Cesarean delivery rate.
 cesarean_rate_pct,2015,resident,32.004546,32.000000,0.200000,0.004546,pass,1,NVSR Vol. 66 No. 1 (Births: Final Data for 2015),Cesarean delivery rate.
 cesarean_rate_pct,2019,resident,31.677133,31.700000,0.200000,-0.022867,pass,1,NVSR Vol. 70 No. 2 (Births: Final Data for 2019),Cesarean delivery rate.

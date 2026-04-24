@@ -80,8 +80,8 @@ python scripts/06_convenience/write_residents_only.py
 ```
 
 Outputs:
-- `output/convenience/natality_v2_residents_only.parquet` (134.95M rows, 80 cols)
-- `output/convenience/natality_v3_linked_residents_only.parquet` (63.86M rows, 90 cols)
+- `output/convenience/natality_v2_residents_only.parquet` (138.58M rows, 82 cols)
+- `output/convenience/natality_v3_linked_residents_only.parquet` (74.79M rows, 92 cols)
 - `output/convenience/PROVENANCE.md` (SHA-256 checksums for verification)
 
 These drop `restatus` and `is_foreign_resident` (redundant after filtering) and are recommended for most analyses.
@@ -147,13 +147,13 @@ output/
 ├── linked/
 │   └── linked_{2005-2023}_denomplus.parquet        # 19 raw linked yearly extracts
 ├── harmonized/
-│   ├── natality_v2_harmonized.parquet              # V2 stacked (138.8M rows, 69 cols)
-│   ├── natality_v2_harmonized_derived.parquet      # V2 + derived (138.8M rows, 82 cols)
-│   ├── natality_v3_linked_harmonized.parquet       # V3 stacked (74.9M rows, 76 cols)
-│   └── natality_v3_linked_harmonized_derived.parquet  # V3 + derived (74.9M rows, 92 cols)
+│   ├── natality_v2_harmonized.parquet              # V2 stacked (138.8M rows, 71 cols)
+│   ├── natality_v2_harmonized_derived.parquet      # V2 + derived (138.8M rows, 84 cols)
+│   ├── natality_v3_linked_harmonized.parquet       # V3 stacked (74.9M rows, 78 cols)
+│   └── natality_v3_linked_harmonized_derived.parquet  # V3 + derived (74.9M rows, 94 cols)
 ├── convenience/
-│   ├── natality_v2_residents_only.parquet          # V2 residents only (135.0M rows, 80 cols)
-│   ├── natality_v3_linked_residents_only.parquet   # V3 residents only (63.9M rows, 90 cols)
+│   ├── natality_v2_residents_only.parquet          # V2 residents only (138.6M rows, 82 cols)
+│   ├── natality_v3_linked_residents_only.parquet   # V3 residents only (74.8M rows, 92 cols)
 │   └── PROVENANCE.md                               # SHA-256 checksums + pipeline version
 └── validation/
     ├── external_validation_v1_comparison.csv        # V2 external targets (183 targets)

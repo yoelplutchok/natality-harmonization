@@ -228,16 +228,17 @@ def main() -> None:
             chyp_bool = _int129_to_bool(chyp)
             ghyp_bool = _int129_to_bool(ghyp)
 
-            # Death-side derived
-            # Neonatal death: infant_death=True AND age_at_death_days < 28
-            # Postneonatal death: infant_death=True AND age_at_death_days >= 28
-            is_death = infant_death
-            neonatal = pc.and_(is_death, pc.less(aged_days, pa.scalar(28, type=pa.int16())))
-            # Fill null for non-deaths (aged_days is null for survivors, comparison yields null)
-            neonatal = pc.fill_null(neonatal, False)
-
-            postneonatal = pc.and_(is_death, pc.greater_equal(aged_days, pa.scalar(28, type=pa.int16())))
-            postneonatal = pc.fill_null(postneonatal, False)
+            # Death-side derived (AUDIT D11):
+            # - Survivors (infant_death == False) are always False for both neonatal and
+            #   postneonatal — their aged_days is null but they are definitely not deaths.
+            # - Deaths (infant_death == True) with non-null aged_days get the comparison.
+            # - Deaths with null aged_days remain null (unknown neonatal status) — NOT
+            #   forced to False, to avoid misclassifying a death whose age is missing.
+            is_survivor = pc.equal(infant_death, pa.scalar(False))
+            neonatal_for_deaths = pc.less(aged_days, pa.scalar(28, type=pa.int16()))
+            postneonatal_for_deaths = pc.greater_equal(aged_days, pa.scalar(28, type=pa.int16()))
+            neonatal = pc.if_else(is_survivor, pa.scalar(False), neonatal_for_deaths)
+            postneonatal = pc.if_else(is_survivor, pa.scalar(False), postneonatal_for_deaths)
 
             cause_grp = _cause_group(ucod)
 

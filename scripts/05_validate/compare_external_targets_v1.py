@@ -176,7 +176,11 @@ def main() -> None:
     plur_den: dict[str, dict[int, int]] = {u: {y: 0 for y in years_needed} for u in universes}
     twin_num: dict[str, dict[int, int]] = {u: {y: 0 for y in years_needed} for u in universes}
     trip_num: dict[str, dict[int, int]] = {u: {y: 0 for y in years_needed} for u in universes}
-    # Cesarean (delivery_method_recode: 2=cesarean among known 1-2)
+    # Cesarean — year-dependent crosswalk:
+    #   1990-2004 (DELMETH5-style codes): cesarean = codes 3 or 4; known = codes 1-4.
+    #   2005+     (DMETH_REC: 1=vaginal, 2=cesarean, 9=unknown): cesarean = code 2;
+    #              known = codes 1-2.
+    # See per-year implementation at ~line 285 below.
     ces_den: dict[str, dict[int, int]] = {u: {y: 0 for y in years_needed} for u in universes}
     ces_num: dict[str, dict[int, int]] = {u: {y: 0 for y in years_needed} for u in universes}
     # Smoking (smoking_any_during_pregnancy: True among known)
@@ -220,9 +224,9 @@ def main() -> None:
         plur = batch.column("plurality_recode")
 
         # Resident mask (boolean; treat null as nonresident if ever present)
-        res_mask = pc.and_(pc.is_valid(foreign), pc.invert(foreign))
-        rev_mask = pc.and_(pc.is_valid(cert_rev), pc.equal(cert_rev, revised_s))
-        res_rev_mask = pc.and_(res_mask, rev_mask)
+        res_mask = pc.fill_null(pc.and_(pc.is_valid(foreign), pc.invert(foreign)), False)
+        rev_mask = pc.fill_null(pc.and_(pc.is_valid(cert_rev), pc.equal(cert_rev, revised_s)), False)
+        res_rev_mask = pc.fill_null(pc.and_(res_mask, rev_mask), False)
 
         present_years = [int(y) for y in pc.unique(year).to_pylist() if int(y) in births["resident"]]
         for y in present_years:

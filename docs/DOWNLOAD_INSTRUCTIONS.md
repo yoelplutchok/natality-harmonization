@@ -94,8 +94,11 @@ cd raw_docs/linked
 curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/cohortlinkedus/LinkCO05Guide.pdf"
 curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/cohortlinkedus/LinkCO10Guide.pdf"
 curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/cohortlinkedus/LinkCO15Guide.pdf"
-# Period-cohort user guides (check NCHS portal for exact filenames)
+# Period-cohort user guides (one per cohort year starting 2020)
 curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/period-cohort-linked/21PE20CO_linkedUG.pdf"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/period-cohort-linked/22PE21CO_linkedUG.pdf"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/period-cohort-linked/23PE22CO_linkedUG.pdf"
+curl -fL -O "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/period-cohort-linked/24PE23CO_linkedUG.pdf"
 ```
 
 **Note**: Not every linked cohort year has its own user guide. The 2005, 2010, 2015 guides cover the denominator-plus format; the 2020 guide covers the period-cohort format. Positions are consistent within each format era.

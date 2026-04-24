@@ -1,84 +1,135 @@
 # U.S. Natality Harmonization Project
 
-A modern, researcher-ready release of harmonized U.S. natality microdata for cross-year analysis.
+A researcher-ready release of harmonized U.S. natality microdata for cross-year analysis (1990–2024) plus linked birth-infant death records (2005–2023).
 
-## Scope
+## What this is
 
-Harmonized U.S. natality microdata for **1990–2024** with a stable 69-column harmonized schema (82 with derived indicators) covering maternal and paternal demographics, prenatal care, medical risk factors, congenital anomalies, infections, fertility treatment, clinical detail, and birth outcomes, plus documentation and validation.
+NCHS publishes annual natality public-use microdata as fixed-width ASCII records inside zips, with the field layout changing multiple times across 1990–2024:
 
-## Raw data
+| Era | Years | Record length | Certificate |
+|-----|-------|---------------|-------------|
+| Unrevised-only | 1990–2002 | 350 bytes | 1989 certificate |
+| Dual-certificate transition | 2003 | 1350 bytes | Dual |
+| Dual-certificate transition | 2004–2005 | 1500 bytes | Dual |
+| Dual-certificate transition | 2006–2013 | 775 bytes | Dual (unrevised-only fields get blanked from 2009 on) |
+| Revised-only | 2014–2024 | 1345 bytes | 2003 revised certificate |
 
-**NCHS public-use period natality** files: `Nat{year}.zip` (1990–1993) and `Nat{year}us.zip` (1994–2024), with the annual documentation PDF as the layout authority. Full rationale, URLs, and caveats: **[docs/DATA_SOURCE_V1.md](docs/DATA_SOURCE_V1.md)**.
+Plus three linked birth-infant death formats (2005–2013 denominator-plus 900 bytes, 2014–2015 denominator-plus 1384 bytes, 2016–2023 period-cohort merged by CO_SEQNUM+CO_YOD).
 
-## Current status
-
-- **Downloads:** `raw_data/` contains all 35 natality zips (1990–2024); `raw_docs/` contains documentation PDFs; `metadata/file_inventory.csv` tracks URLs, filenames, and import status.
-- **Import:** `scripts/01_import/parse_all_v1_years.py` produces `output/yearly_clean/natality_{year}_core.parquet` (raw substrings). Handles five record layouts (350/1350/1500/775/1345 bytes). `7z` on PATH for deflate64/PPMd zips (2009–2013, 2015).
-- **Harmonized (1990–2024):** complete — `output/harmonized/natality_v2_harmonized.parquet` + `natality_v2_harmonized_derived.parquet`.
-- **Validation:** all invariant checks pass (0 violations); 183/183 external targets pass (1990–2024); key rates plausible across all 35 years. See `output/validation/`.
-- **V3 Linked (2005–2023):** `output/harmonized/natality_v3_linked_harmonized_derived.parquet` — 74.9M birth records with linked infant death data (IMR, cause of death, neonatal/postneonatal). Validated against NCHS linked file user guides for 2005, 2010, 2015, 2020-2023 (35/35 external targets pass; IMR trend 6.74→5.49).
+This project parses all of them, maps the era-specific raw fields to a **single stable schema of 71 harmonized columns + 13 derived indicators** (V2 natality) and 78 + 16 (V3 linked), documents every era boundary and comparability constraint, and validates the output against NCHS "Births: Final Data" NVSR reports (183/183 V2 targets pass, 35/35 V3 linked targets pass).
 
 ## Headline metrics
 
 - **Years covered**: 1990–2024 (35 years natality); 2005–2023 (19 years linked birth-infant death)
 - **Birth records**: 138,819,655 total (natality V2); 74,943,824 (linked V3)
-- **Harmonized columns**: 69 natality + 13 derived = 82 (V2); 76 + 16 derived = 92 including death-side (V3 linked)
-- **Convenience outputs**: `output/convenience/` — residents-only subsets (138.58M V2, 74.79M V3 linked)
-- **External validation**: `output/validation/external_validation_v1_comparison.csv` (183 targets, 1990–2024, all pass); linked V3: 35/35 targets pass (2005/2010/2015/2020-2023 user guides — births, deaths, IMR, neonatal/postneonatal deaths and IMR)
+- **Residents-only subsets**: 138.58M V2; 74.79M V3 linked
+- **Columns**: V2 = 71 harmonized + 13 derived = 84; V3 linked = 78 harmonized + 16 derived = 94 (same 84 as V2 plus 7 death-side harmonized + 3 death-side derived)
+- **Validation**: all 41 internal invariants pass with 0 violations against the V2 natality parquet (V3 linked: 38 pass clean + 1 with 2 documented NCHS-upstream survivor exceptions; 3 V2-only coverage invariants are skipped in V3 mode — see `docs/COMPARABILITY.md` §"V3 linked vs V2 natality: 2009–2010 unrevised-cert field retention"); V2 external targets 183/183 pass (1990–2024); V3 linked external targets 35/35 pass (2005–2023, from NCHS linked user guides)
+- **Zenodo DOI**: [10.5281/zenodo.19363075](https://doi.org/10.5281/zenodo.19363075)
 
-## Repository structure
+## Output files
+
+All outputs live under `output/`. The three files a researcher will actually use:
+
+| File | Rows | Columns | What it is |
+|------|-----:|--------:|-----------|
+| `output/harmonized/natality_v2_harmonized_derived.parquet` | 138,819,655 | 84 | All U.S. births 1990–2024, one row per birth, with all derived indicators. **Start here for most analyses.** |
+| `output/harmonized/natality_v3_linked_harmonized_derived.parquet` | 74,943,824 | 94 | Linked birth-infant death 2005–2023, one row per birth, death-side fields populated for ~0.6% that died in the first year. |
+| `output/convenience/*.parquet` | ~138.58M / ~74.79M | — | Residents-only subsets (exclude foreign residents; `restatus != 4`) for matching NCHS residence-based published rates. |
+
+## Reading order (for a new researcher or LLM)
+
+1. **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)** — how to load the parquet, required filters, example queries.
+2. **[docs/CODEBOOK.md](docs/CODEBOOK.md)** — every harmonized and derived column: definition, dtype, year coverage, raw-field provenance, and known caveats.
+3. **[docs/COMPARABILITY.md](docs/COMPARABILITY.md)** — cross-year comparability rules. This is the single most important doc for anyone doing multi-year trend analysis. Read it before filtering or decomposing.
+4. **[docs/VALIDATION.md](docs/VALIDATION.md)** — what was validated, against what, and the residual coverage gaps.
+5. **[docs/ABOUT_THIS_RELEASE.md](docs/ABOUT_THIS_RELEASE.md)** — what this project adds over working directly with the raw NCHS zips.
+6. **[docs/FAQ.md](docs/FAQ.md)** — common questions and gotchas.
+
+Supporting reference:
+- **[docs/DATA_SOURCE_V1.md](docs/DATA_SOURCE_V1.md)** — NCHS source URLs, file naming, compression formats, and provenance.
+- **[docs/DOWNLOAD_INSTRUCTIONS.md](docs/DOWNLOAD_INSTRUCTIONS.md)** — `curl` commands to fetch the raw zips and user-guide PDFs from NCHS.
+- **[docs/ABOUT_SOURCE_DATA.md](docs/ABOUT_SOURCE_DATA.md)** — what NCHS natality files are and why they matter.
+- **[docs/PROJECT_EXPLAINER.md](docs/PROJECT_EXPLAINER.md)** — high-level project narrative.
+- **[metadata/harmonized_schema.csv](metadata/harmonized_schema.csv)** — the canonical machine-readable schema (columns, dtypes, raw-field provenance per era).
+
+## Repository layout
 
 ```
 natality-harmonization/
-├── README.md
-├── requirements.txt
-├── raw_data/              # NCHS natality + linked zips (not committed; see inventory)
-│   └── linked/            # linked birth-infant death zips
-├── raw_docs/              # NCHS User Guide PDFs
-│   └── linked/            # linked file user guides
-├── metadata/              # CSV tracking sheets (source of truth for harmonization)
+├── README.md                          ← you are here
+├── requirements.txt                   ← Python deps (pyarrow, pandas)
+├── raw_data/                          ← NCHS natality + linked zips (not committed; see docs/DOWNLOAD_INSTRUCTIONS.md)
+│   └── linked/                        ← linked birth-infant death zips
+├── raw_docs/                          ← NCHS User Guide PDFs (committed for reproducibility)
+│   ├── Nat{year}doc.pdf               ← 1990–2004 layout docs
+│   ├── UserGuide{year}.pdf            ← 2005–2024 layout docs (authoritative for field positions)
+│   ├── linked/                        ← LinkCO{05,10,15}Guide.pdf and {Y+1}PE{Y}CO_linkedUG.pdf
+│   └── nvsr/                          ← NCHS "Births: Final Data" reports (external validation targets)
+├── metadata/
+│   ├── harmonized_schema.csv          ← canonical column-level schema
+│   ├── external_validation_targets_v1.csv  ← 183 target rows for V2 validation
+│   ├── external_validation_targets_v3_linked.csv  ← 35 target rows for V3 linked
+│   └── file_inventory.csv             ← per-year zip inventory
 ├── scripts/
-│   ├── 01_import/         # parse fixed-width → per-year Parquet
-│   ├── 03_harmonize/      # map era-specific fields → common schema
-│   ├── 04_derive/         # compute LBW, preterm, age categories, etc.
-│   ├── 05_validate/       # invariants, external targets, missingness diagnostics
-│   ├── 06_convenience/    # residents-only subsets + provenance
-│   └── 07_figures/        # paper figures
+│   ├── 01_import/                     ← parse fixed-width → per-year Parquet
+│   ├── 03_harmonize/                  ← map era-specific fields → common schema
+│   ├── 04_derive/                     ← compute LBW, preterm, age categories, neonatal_death, etc.
+│   ├── 05_validate/                   ← invariants, external targets, missingness diagnostics
+│   ├── 06_convenience/                ← residents-only subsets + provenance
+│   └── 07_figures/                    ← paper figures
 ├── output/
-│   ├── yearly_clean/      # raw per-year Parquet extracts
-│   ├── linked/            # raw per-year linked Parquet extracts
-│   ├── harmonized/        # stacked harmonized + derived Parquet files
-│   ├── convenience/       # residents-only subsets + PROVENANCE.md
-│   └── validation/        # external targets, invariants, missingness
-├── notebooks/             # quickstart examples
-├── figures/               # publication-ready figures (PDF + PNG)
-└── docs/                  # codebook, comparability, FAQ, validation, etc.
+│   ├── yearly_clean/                  ← raw per-year Parquet extracts (one per year, pre-harmonization)
+│   ├── linked/                        ← raw per-year linked Parquet extracts
+│   ├── harmonized/                    ← stacked harmonized + derived Parquet files (the end product)
+│   ├── convenience/                   ← residents-only subsets + PROVENANCE.md
+│   └── validation/                    ← external-target reports, invariants reports, missingness diagnostics
+├── notebooks/                         ← quickstart examples
+├── figures/                           ← publication-ready figures (PDF + PNG)
+└── docs/                              ← codebook, comparability, FAQ, validation, etc.
 ```
 
-## Progress checklist
+## Quick reproduce (full pipeline)
 
-See [docs/MILESTONES.md](docs/MILESTONES.md) for the full Version 1 milestone ladder.
+Once `raw_data/` is populated per `docs/DOWNLOAD_INSTRUCTIONS.md`:
 
-## Documentation
+```bash
+# 1. Parse raw zips → per-year parquet (run once)
+python scripts/01_import/parse_all_v1_years.py --years 1990-2024
+python scripts/01_import/parse_all_linked_years.py --years 2005-2015        # denom-plus
+for y in 2016 2017 2018 2019 2020 2021 2022 2023; do
+  python scripts/01_import/parse_linked_cohort_year.py \
+    --zip raw_data/linked/$((y+1))PE${y}CO.zip --year $y \
+    --out output/linked/linked_${y}_denomplus.parquet
+done
 
-| Document | Purpose |
-|----------|---------|
-| [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) | Load data, caveats, example analyses |
-| [docs/CODEBOOK.md](docs/CODEBOOK.md) | Variable-level definitions (69 harmonized + 13 derived) |
-| [docs/COMPARABILITY.md](docs/COMPARABILITY.md) | Cross-year comparability rules and known pitfalls |
-| [docs/VALIDATION.md](docs/VALIDATION.md) | Validation against official NCHS tabulations |
-| [docs/FAQ.md](docs/FAQ.md) | Common questions (20 entries) |
-| [docs/ABOUT_THIS_RELEASE.md](docs/ABOUT_THIS_RELEASE.md) | What this project adds vs. raw NCHS files |
-| [docs/ABOUT_SOURCE_DATA.md](docs/ABOUT_SOURCE_DATA.md) | What natality files are and why they matter |
-| [docs/DATA_SOURCE_V1.md](docs/DATA_SOURCE_V1.md) | NCHS source files, URLs, compression formats |
-| [docs/DOWNLOADS.md](docs/DOWNLOADS.md) | Build instructions for all outputs |
-| [docs/DOWNLOAD_INSTRUCTIONS.md](docs/DOWNLOAD_INSTRUCTIONS.md) | How to download raw NCHS files (`curl` commands) |
+# 2. Harmonize era-specific fields → common schema
+python scripts/03_harmonize/harmonize_v1_core.py --years 1990-2024
+python scripts/03_harmonize/harmonize_linked_v3.py --years 2005-2023
+
+# 3. Derive analysis-ready indicators (LBW, preterm, age-cat, neonatal_death, cause_group)
+python scripts/04_derive/derive_v1_core.py
+python scripts/04_derive/derive_linked_v3.py
+
+# 4. Validate
+python scripts/05_validate/validate_v1_invariants.py --years 1990-2024    # internal invariants
+python scripts/05_validate/compare_external_targets_v1.py                  # 183 NVSR targets
+python scripts/05_validate/compare_external_targets_v3_linked.py           # 35 linked targets
+python scripts/05_validate/validate_linked_parquets.py --years 2005-2023   # V3 stop-ship checks
+python scripts/05_validate/harmonized_missingness.py                       # per-variable null rates
+python scripts/05_validate/validate_row_counts_vs_nchs.py --years 1994-2024
+```
+
+End-to-end runtime on a single modern laptop: ~1 hour wall clock for parse, ~15 min for harmonize+derive, ~10 min for validate.
 
 ## Principles
 
-Reproducibility, transparency, explicit comparability documentation, and usability for researchers who did not build the pipeline.
+- **Reproducibility**: every output can be regenerated from `raw_data/` + committed scripts + committed `metadata/*.csv`.
+- **Transparency**: the raw-field-to-harmonized-column mapping is in `scripts/01_import/field_specs.py` with inline comments per era, and mirrored in `metadata/harmonized_schema.csv` for machine consumption.
+- **Explicit comparability documentation**: every column that's not fully comparable across 1990–2024 is flagged in the CODEBOOK and has a corresponding entry in COMPARABILITY.md's pitfall tables.
+- **Honest validation**: 183/183 and 35/35 are headline numbers, but individual transcription failures, single-year coverage gaps, and known quirks (e.g., two null-`record_weight` survivor rows in 2014/2015) are documented rather than papered over.
 
 ## Citation
 
-- Cite **NCHS** as the source of the underlying public-use microdata.
-- Cite this dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19363075.svg)](https://doi.org/10.5281/zenodo.19363075)
+- Cite **NCHS** as the source of the underlying public-use microdata. See `docs/DATA_SOURCE_V1.md` for NVSR and data-request citation patterns.
+- Cite this harmonization: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19363075.svg)](https://doi.org/10.5281/zenodo.19363075)

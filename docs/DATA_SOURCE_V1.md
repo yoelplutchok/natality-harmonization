@@ -10,7 +10,7 @@ These are the raw inputs to the harmonization pipeline. All are **public-use** f
 
 | Years | ZIP pattern | Doc pattern | Notes |
 |-------|------------|-------------|-------|
-| 1990–1993 | `Nat{YYYY}.zip` | `Nat{YYYY}doc.pdf` | US + territories combined; filter on `RECTYPE=1` for US-only |
+| 1990–1993 | `Nat{YYYY}.zip` | `Nat{YYYY}doc.pdf` | US-only (no territories); contains ~0.1% foreign-resident records identifiable via `RESTATUS == 4`. Position 5 (RECTYPE) mirrors RESTATUS — do **not** filter on it (see LLM_HANDOFF_LOG Session 19 fix). |
 | 1994–2024 | `Nat{YYYY}us.zip` | `UserGuide{YYYY}.pdf` | US-only |
 
 Base URLs:
@@ -33,7 +33,8 @@ After unzip: one or more **large ASCII text files** with **fixed-width fields** 
 | Pre-2003 | 1990–2002 | 350 bytes | Unrevised 1989 |
 | Transition | 2003 | 1350 bytes | Dual (first year of 2003 revision) |
 | Transition | 2004 | 1500 bytes | Dual |
-| Transition | 2005–2013 | 775 bytes (2006–2013), 1500 bytes (2005) | Dual |
+| Transition | 2005 | 1500 bytes | Dual |
+| Transition | 2006–2013 | 775 bytes | Dual |
 | Revised-only | 2014–2024 | 1345 bytes | Revised 2003 |
 
 ### Compression caveats

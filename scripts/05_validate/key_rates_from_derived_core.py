@@ -103,14 +103,16 @@ def main() -> None:
         pre = batch.column(3)
 
         # Resident mask (boolean; treat null as nonresident if ever present)
-        res_mask = pc.and_(pc.is_valid(foreign), pc.invert(foreign))
+        res_mask = pc.fill_null(pc.and_(pc.is_valid(foreign), pc.invert(foreign)), False)
 
         present_years = pc.unique(year).to_pylist()
         for y in present_years:
+            if y is None:
+                continue
             y = int(y)
             if y not in res_births:
                 continue
-            mask = pc.and_(res_mask, pc.equal(year, y))
+            mask = pc.fill_null(pc.and_(res_mask, pc.equal(year, y)), False)
             res_births[y] += int(pc.sum(pc.cast(mask, "int64")).as_py() or 0)
 
             lbw_y = pc.filter(lbw, mask)

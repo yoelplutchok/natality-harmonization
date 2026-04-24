@@ -13,9 +13,9 @@
 
 ## Which file should I use?
 
-- For **birth outcome research** (LBW, preterm, demographic trends): use `output/convenience/natality_v2_residents_only.parquet` (pre-filtered to residents, 80 columns)
-- For **infant mortality research** (IMR, cause-specific mortality, neonatal vs postneonatal): use `output/convenience/natality_v3_linked_residents_only.parquet` (pre-filtered to residents, 90 columns)
-- For analyses that need **foreign residents** or the `restatus` column: use the full `natality_v2_harmonized_derived.parquet` (82 columns) or `natality_v3_linked_harmonized_derived.parquet` (92 columns)
+- For **birth outcome research** (LBW, preterm, demographic trends): use `output/convenience/natality_v2_residents_only.parquet` (pre-filtered to residents, 82 columns)
+- For **infant mortality research** (IMR, cause-specific mortality, neonatal vs postneonatal): use `output/convenience/natality_v3_linked_residents_only.parquet` (pre-filtered to residents, 92 columns)
+- For analyses that need **foreign residents** or the `restatus` column: use the full `natality_v2_harmonized_derived.parquet` (84 columns) or `natality_v3_linked_harmonized_derived.parquet` (94 columns)
 - For **auditing or debugging**: use the yearly `output/yearly_clean/` or `output/linked/` files
 
 ## Are these data nationally representative?
@@ -24,7 +24,7 @@ Yes. These are the **NCHS national public-use natality files** — essentially a
 
 - Some variables are not fully comparable across years and certificate revisions (see `docs/COMPARABILITY.md`)
 - Public-use files do **not** include sub-state geography (county/city)
-- 1990-1993 files use `Nat{year}.zip` (without "us" suffix) but contain only US records
+- 1990-1993 files use `Nat{year}.zip` (without "us" suffix); they still contain a small foreign-resident tail (~0.1% per year, identifiable via `RESTATUS == 4` / `is_foreign_resident == True`)
 
 ## What is the recommended analysis universe?
 
@@ -100,6 +100,47 @@ Example:
 ## Why is `marital_status` null for ~12% of births after 2017?
 
 California stopped providing record-level marital status to NCHS in 2017 due to state statutory restrictions. The data is truly absent at the source — NCHS does not impute it. Use `marital_reporting_flag` (available 2014+) to distinguish non-reporting-state births (`false`) from reporting-state births with genuine unknown status. For trend analyses spanning 2017, either restrict to `marital_reporting_flag == true` or exclude marital status from the model.
+
+## Why is `father_age` null for so many 2012 and 2013 births?
+
+`father_age` (single-year integer) is populated only for revised-certificate rows in 2012 and 2013 — about 77% and 79% of those years respectively. The reason: NCHS moved the raw single-year father-age field from `UFAGECOMB` (used 2005–2011) to `FAGECOMB` across those two years, and only the revised form carries `FAGECOMB`. The unrevised-certificate rows in 2012 (~12% of births) have no raw single-year source at all.
+
+For analyses that need father age for *every* row in 2005–2013, use **`father_age_cat_from_rec11`** (a categorical string column derived from the NCHS `FAGEREC11` recode — values `<20`, `20-24`, `25-29`, `30-34`, `35-39`, `40+`, or null). This column is populated for ~87% of rows across 2005–2013 regardless of certificate revision, because FAGEREC11 is on both forms. It is null for 1990–2002 and 2014+ (where raw single-year age is directly available in `father_age`).
+
+## Why is `prior_cesarean` null for 1990–2004 and partly null for 2005–2013?
+
+`prior_cesarean` is derived from `RF_CESAR`, which is a **revised-certificate-only** field. It was introduced at position 324 of the 2005–2013 record layout and appears on every revised-cert birth but no unrevised-cert births. Coverage therefore tracks state-level adoption of the 2003 revised certificate: 30.8% of rows populated in 2005, rising to 48.6% (2006), 55.0% (2007), 64.4% (2008), 67.7% (2009), 77.1% (2010), 85.4% (2011), 88.0% (2012), 90.2% (2013), and ~96–100% from 2014+ when all states had adopted the revised form.
+
+For 1990–2004, the public-use layouts carry no Y/N/U prior-cesarean field at all. The closest tracer is `delivery_method_recode`: codes 2 (VBAC) and 4 (repeat cesarean) together identify a mother with a known prior cesarean. This tracer is only available 1990–2004 because the delivery-method coding changed at 2005 (3-category vs. 5-category).
+
+## How do I compute the cesarean rate across 1990–2024?
+
+`delivery_method_recode` uses two different coding frames with the boundary at **2005** (not 2003). You need a year-aware rule:
+
+- **1990–2004** (DELMETH5-style): codes 1=vaginal, 2=VBAC, 3=primary cesarean, 4=repeat cesarean, 9=not stated. Cesarean = `delivery_method_recode IN (3, 4)` among known codes 1–4.
+- **2005–2024** (DMETH_REC): codes 1=vaginal, 2=cesarean, 9=not stated. Cesarean = `delivery_method_recode == 2` among known codes 1–2.
+
+Naïvely computing `delivery_method_recode == 2` over the full range will undercount cesareans by ~15–20 percentage points for 1990–2004 rows (where `2` means VBAC, not cesarean). Example SQL / Python:
+
+```python
+import pyarrow.compute as pc
+is_ces = pc.if_else(
+    pc.less_equal(df["year"], 2004),
+    pc.is_in(df["delivery_method_recode"], value_set=pa.array([3, 4], pa.int8())),
+    pc.equal(df["delivery_method_recode"], pa.scalar(2, pa.int8())),
+)
+known = pc.if_else(
+    pc.less_equal(df["year"], 2004),
+    pc.less_equal(df["delivery_method_recode"], pa.scalar(4, pa.int8())),
+    pc.less_equal(df["delivery_method_recode"], pa.scalar(2, pa.int8())),
+)
+```
+
+This crosswalk is validated against NVSR published cesarean rates for every year 1990–2024 (all within 0.07 pct-pts — see `output/validation/external_validation_v1_comparison.csv`). Finer categories (primary vs repeat cesarean, VBAC) are only available for 1990–2004.
+
+## What does the `attendant_at_birth` column cover?
+
+`attendant_at_birth` records who attended the birth: 1=MD, 2=DO, 3=CNM, 4=other midwife, 5=other. Null rate is <0.4% in every year (typically under 0.1%; range 0.026% in 2002 to 0.389% in 1990) — this variable has the cleanest coverage in the dataset. The source field moves across three positions (`BIRATTND@10` for 1990–2002; `ATTEND@408` for 2003–2004; `ATTEND@410` for 2005–2013; `ATTEND@433` for 2014+); the harmonizer resolves this automatically.
 
 ## Why should I use `diabetes_any_bool` instead of `diabetes_any`?
 

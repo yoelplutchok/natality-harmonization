@@ -3,14 +3,12 @@
 Input: `/Users/yoelplutchok/Desktop/natality-harmonization/output/harmonized/natality_v2_harmonized_derived.parquet`
 Break threshold: 5.0 percentage points
 
-## Structural breaks detected (81 total)
+## Structural breaks detected (94 total)
 
 | Variable | Year transition | Null % (from → to) | Delta (ppt) |
 |----------|----------------|---------------------|-------------|
 | `apgar5_clean` | 2004→2005 | 23.0% → 13.7% | -9.2 |
 | `apgar5_clean` | 2006→2007 | 13.5% → 0.8% | -12.8 |
-| `attendant_at_birth` | 2003→2004 | 0.2% → 100.0% | +99.8 |
-| `attendant_at_birth` | 2004→2005 | 100.0% → 0.1% | -99.9 |
 | `bmi_prepregnancy` | 2013→2014 | 100.0% → 7.2% | -92.8 |
 | `bmi_prepregnancy_recode6` | 2013→2014 | 100.0% → 7.2% | -92.8 |
 | `breastfed_at_discharge` | 2013→2014 | 100.0% → 18.2% | -81.8 |
@@ -26,10 +24,12 @@ Break threshold: 5.0 percentage points
 | `ca_limb_reduction` | 2013→2014 | 100.0% → 3.9% | -96.1 |
 | `ca_omphalocele` | 2013→2014 | 100.0% → 3.9% | -96.1 |
 | `ca_spina_bifida` | 2013→2014 | 100.0% → 3.9% | -96.1 |
-| `father_age` | 2011→2012 | 13.1% → 100.0% | +86.9 |
-| `father_age` | 2013→2014 | 100.0% → 15.7% | -84.3 |
-| `father_age_cat` | 2011→2012 | 13.1% → 100.0% | +86.9 |
-| `father_age_cat` | 2013→2014 | 100.0% → 15.7% | -84.3 |
+| `father_age` | 2011→2012 | 13.1% → 23.0% | +10.0 |
+| `father_age` | 2013→2014 | 21.0% → 15.7% | -5.3 |
+| `father_age_cat` | 2011→2012 | 13.1% → 23.0% | +10.0 |
+| `father_age_cat` | 2013→2014 | 21.0% → 15.7% | -5.3 |
+| `father_age_cat_from_rec11` | 2004→2005 | 100.0% → 13.8% | -86.2 |
+| `father_age_cat_from_rec11` | 2013→2014 | 12.6% → 100.0% | +87.4 |
 | `father_education_cat4` | 1994→1995 | 17.5% → 100.0% | +82.5 |
 | `father_education_cat4` | 2008→2009 | 100.0% → 42.3% | -57.7 |
 | `father_education_cat4` | 2009→2010 | 42.3% → 34.5% | -7.7 |
@@ -42,6 +42,7 @@ Break threshold: 5.0 percentage points
 | `infection_hep_b` | 2013→2014 | 100.0% → 4.0% | -96.0 |
 | `infection_hep_c` | 2013→2014 | 100.0% → 4.0% | -96.0 |
 | `infection_syphilis` | 2013→2014 | 100.0% → 4.0% | -96.0 |
+| `marital_reporting_flag` | 2013→2014 | 100.0% → 0.0% | -100.0 |
 | `marital_status` | 2016→2017 | 0.0% → 12.2% | +12.2 |
 | `maternal_education_cat4` | 2008→2009 | 1.2% → 32.9% | +31.7 |
 | `maternal_education_cat4` | 2009→2010 | 32.9% → 23.6% | -9.3 |
@@ -57,7 +58,7 @@ Break threshold: 5.0 percentage points
 | `maternal_race_detail` | 2009→2010 | 70.5% → 79.9% | +9.3 |
 | `maternal_race_detail` | 2010→2011 | 79.9% → 86.9% | +7.1 |
 | `maternal_race_detail` | 2013→2014 | 91.2% → 3.3% | -87.9 |
-| `maternal_race_ethnicity_5` | 2019→2020 | 1.0% → 100.0% | +99.0 |
+| `maternal_race_detail_15cat` | 2013→2014 | 100.0% → 3.3% | -96.7 |
 | `nicu_admission` | 2013→2014 | 100.0% → 3.8% | -96.2 |
 | `payment_source_recode` | 2008→2009 | 100.0% → 33.3% | -66.7 |
 | `payment_source_recode` | 2009→2010 | 33.3% → 24.3% | -9.0 |
@@ -72,8 +73,20 @@ Break threshold: 5.0 percentage points
 | `prenatal_care_start_trimester` | 2009→2010 | 31.9% → 22.6% | -9.3 |
 | `prenatal_care_start_trimester` | 2010→2011 | 22.6% → 14.2% | -8.4 |
 | `prenatal_care_start_trimester` | 2013→2014 | 9.6% → 3.6% | -6.0 |
-| `prior_cesarean` | 2013→2014 | 100.0% → 3.7% | -96.3 |
-| `prior_cesarean_count` | 2013→2014 | 100.0% → 3.8% | -96.2 |
+| `prior_cesarean` | 2004→2005 | 100.0% → 69.2% | -30.8 |
+| `prior_cesarean` | 2005→2006 | 69.2% → 51.4% | -17.9 |
+| `prior_cesarean` | 2006→2007 | 51.4% → 45.0% | -6.4 |
+| `prior_cesarean` | 2007→2008 | 45.0% → 35.6% | -9.4 |
+| `prior_cesarean` | 2009→2010 | 32.3% → 22.9% | -9.3 |
+| `prior_cesarean` | 2010→2011 | 22.9% → 14.6% | -8.4 |
+| `prior_cesarean` | 2013→2014 | 9.8% → 3.7% | -6.0 |
+| `prior_cesarean_count` | 2004→2005 | 100.0% → 69.3% | -30.7 |
+| `prior_cesarean_count` | 2005→2006 | 69.3% → 51.4% | -17.9 |
+| `prior_cesarean_count` | 2006→2007 | 51.4% → 45.2% | -6.3 |
+| `prior_cesarean_count` | 2007→2008 | 45.2% → 35.7% | -9.5 |
+| `prior_cesarean_count` | 2009→2010 | 32.4% → 23.0% | -9.3 |
+| `prior_cesarean_count` | 2010→2011 | 23.0% → 14.6% | -8.4 |
+| `prior_cesarean_count` | 2013→2014 | 9.8% → 3.8% | -6.0 |
 | `smoking_any_during_pregnancy` | 1998→1999 | 20.1% → 14.5% | -5.6 |
 | `smoking_any_during_pregnancy` | 2006→2007 | 19.6% → 6.8% | -12.7 |
 | `smoking_any_during_pregnancy` | 2007→2008 | 6.8% → 12.4% | +5.6 |

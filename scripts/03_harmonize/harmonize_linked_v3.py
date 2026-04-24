@@ -184,6 +184,30 @@ def _max_recode6_ignoring_unknown(
     return pc.if_else(pc.and_(pc.is_null(max_known), any_unknown), unknown, max_known)
 
 
+def _fagerec11_to_cat(
+    rec11: pa.Array | pa.ChunkedArray,
+) -> pa.Array | pa.ChunkedArray:
+    """Map FAGEREC11 (01-11) to a categorical string matching father_age_cat buckets."""
+    null_s = pa.scalar(None, type=pa.string())
+    out = pc.if_else(pc.is_null(rec11), null_s, null_s)
+    out = pc.if_else(
+        pc.or_(pc.equal(rec11, 1), pc.equal(rec11, 2)),
+        pa.scalar("<20"), out,
+    )
+    out = pc.if_else(pc.equal(rec11, 3), pa.scalar("20-24"), out)
+    out = pc.if_else(pc.equal(rec11, 4), pa.scalar("25-29"), out)
+    out = pc.if_else(pc.equal(rec11, 5), pa.scalar("30-34"), out)
+    out = pc.if_else(pc.equal(rec11, 6), pa.scalar("35-39"), out)
+    out = pc.if_else(
+        pc.and_(
+            pc.fill_null(pc.greater_equal(rec11, 7), False),
+            pc.fill_null(pc.less_equal(rec11, 10), False),
+        ),
+        pa.scalar("40+"), out,
+    )
+    return out
+
+
 def _cigs_count_to_recode6(count: pa.Array | pa.ChunkedArray) -> pa.Array | pa.ChunkedArray:
     int8 = pa.int8()
     null_i8 = pa.scalar(None, type=int8)
@@ -230,6 +254,7 @@ OUT_SCHEMA = pa.schema([
     ("maternal_race_bridged4", pa.int8()),
     ("maternal_race_ethnicity_5", pa.string()),
     ("maternal_race_detail", pa.string()),
+    ("maternal_race_detail_15cat", pa.string()),
     ("race_bridge_method", pa.string()),
     ("maternal_education_cat4", pa.string()),
     ("prenatal_care_start_month", pa.int16()),
@@ -252,6 +277,7 @@ OUT_SCHEMA = pa.schema([
     ("bmi_prepregnancy", pa.float32()),
     ("bmi_prepregnancy_recode6", pa.int8()),
     ("father_age", pa.int16()),
+    ("father_age_cat_from_rec11", pa.string()),
     ("birth_facility", pa.string()),
     ("attendant_at_birth", pa.int8()),
     ("payment_source_recode", pa.int8()),
@@ -441,26 +467,55 @@ def _harmonize_batch(batch: pa.RecordBatch, year: int) -> pa.Table:
     # === Race ===
     race_bridged = _to_int_or_null(_get_col(batch, race_bridged_col), pa.int8())
     race_detail = _to_str_or_null(_get_col(batch, race_detail_col))
+    # 2014+ MRACE6 is a 1-digit field ('1'..'6'); 2005-2013 MRACE is 2-digit
+    # zero-padded ('01'..'78'). Zero-pad 2014+ values so maternal_race_detail
+    # has a uniform 2-digit format across the full linked span (matches
+    # natality V2 behavior).
+    if race_detail_col == "MRACE6":
+        race_detail = pc.utf8_lpad(race_detail, 2, "0")
+
+    # MRACE15 — 15-category detail race recode.  Populated 2014+ in linked files
+    # (the 2014-2020 denom-plus layout inherits from PUBLIC_US_2014_2015_FIELDS).
+    # Null for 2005-2013 linked (NCHS does not expose MRACE15 in the denom-plus
+    # 2005-2013 format).
+    mrace15_raw = _get_col_optional(batch, "MRACE15")
+    if mrace15_raw is not None:
+        race_detail_15 = _to_str_or_null(mrace15_raw)
+        # Null the NCHS "99" unknown sentinel (match natality V2 behavior).
+        race_detail_15 = pc.if_else(
+            pc.fill_null(pc.equal(race_detail_15, pa.scalar("99")), False),
+            pa.scalar(None, type=pa.string()),
+            race_detail_15,
+        )
+    else:
+        race_detail_15 = pa.nulls(batch.num_rows, type=pa.string())
+
+    # Use fill_null(False) on each component of compound conditions because pyarrow's
+    # pc.and_ is NOT Kleene-aware. See harmonize_v1_core.py for details.
+    def _safe_cond(*parts):
+        from functools import reduce
+        return reduce(pc.and_, (pc.fill_null(p, False) for p in parts))
 
     race_eth = pc.if_else(
-        pc.equal(maternal_hisp, pa.scalar(True)), pa.scalar("Hispanic"), null_s,
+        pc.fill_null(pc.equal(maternal_hisp, pa.scalar(True)), False),
+        pa.scalar("Hispanic"), null_s,
     )
-    is_nh = pc.equal(maternal_hisp, pa.scalar(False))
-    race_eth = pc.if_else(pc.and_(is_nh, pc.equal(race_bridged, 1)), pa.scalar("NH_white"), race_eth)
-    race_eth = pc.if_else(pc.and_(is_nh, pc.equal(race_bridged, 2)), pa.scalar("NH_black"), race_eth)
-    race_eth = pc.if_else(pc.and_(is_nh, pc.equal(race_bridged, 3)), pa.scalar("NH_aian"), race_eth)
-    race_eth = pc.if_else(pc.and_(is_nh, pc.equal(race_bridged, 4)), pa.scalar("NH_asian_pi"), race_eth)
+    is_nh = pc.fill_null(pc.equal(maternal_hisp, pa.scalar(False)), False)
+    race_eth = pc.if_else(_safe_cond(is_nh, pc.equal(race_bridged, 1)), pa.scalar("NH_white"), race_eth)
+    race_eth = pc.if_else(_safe_cond(is_nh, pc.equal(race_bridged, 2)), pa.scalar("NH_black"), race_eth)
+    race_eth = pc.if_else(_safe_cond(is_nh, pc.equal(race_bridged, 3)), pa.scalar("NH_aian"), race_eth)
+    race_eth = pc.if_else(_safe_cond(is_nh, pc.equal(race_bridged, 4)), pa.scalar("NH_asian_pi"), race_eth)
 
     # 2020+ race reconstruction: for non-Hispanic births where race_bridged is null,
-    # reconstruct maternal_race_ethnicity_5 from MRACE6 detail codes
+    # reconstruct maternal_race_ethnicity_5 from MRACE6 detail codes (1-byte field).
     if is_post2013:
-        needs_fill = pc.and_(is_nh, pc.is_null(race_bridged))
+        needs_fill = _safe_cond(is_nh, pc.is_null(race_bridged))
         rd_int = _to_int_or_null(_get_col(batch, race_detail_col), pa.int16())
-        race_eth = pc.if_else(pc.and_(needs_fill, pc.equal(rd_int, 1)), pa.scalar("NH_white"), race_eth)
-        race_eth = pc.if_else(pc.and_(needs_fill, pc.equal(rd_int, 2)), pa.scalar("NH_black"), race_eth)
-        race_eth = pc.if_else(pc.and_(needs_fill, pc.equal(rd_int, 3)), pa.scalar("NH_aian"), race_eth)
+        race_eth = pc.if_else(_safe_cond(needs_fill, pc.equal(rd_int, 1)), pa.scalar("NH_white"), race_eth)
+        race_eth = pc.if_else(_safe_cond(needs_fill, pc.equal(rd_int, 2)), pa.scalar("NH_black"), race_eth)
+        race_eth = pc.if_else(_safe_cond(needs_fill, pc.equal(rd_int, 3)), pa.scalar("NH_aian"), race_eth)
         race_eth = pc.if_else(
-            pc.and_(needs_fill, pc.or_(pc.equal(rd_int, 4), pc.equal(rd_int, 5))),
+            _safe_cond(needs_fill, pc.or_(pc.equal(rd_int, 4), pc.equal(rd_int, 5))),
             pa.scalar("NH_asian_pi"), race_eth,
         )
         # code 6 (multiracial, ~3%) stays null — cannot be bridged to single group
@@ -509,9 +564,45 @@ def _harmonize_batch(batch: pa.RecordBatch, year: int) -> pa.Table:
     previs = _to_int_or_null(_get_col(batch, visits_col), pa.int16())
 
     # === Medical risk factors ===
-    diab = _to_int_or_null(_get_col(batch, "URF_DIAB"), pa.int8())
-    chyp = _to_int_or_null(_get_col(batch, "URF_CHYPER"), pa.int8())
-    phyp = _to_int_or_null(_get_col(batch, "URF_PHYPER"), pa.int8())
+    # AUDIT D10: mirror the natality V2 per-year URF_* → RF_* fallback. The
+    # linked 2016-2023 files use the same public-use natality byte layout and
+    # should therefore apply the RF_PDIAB/RF_GDIAB/RF_PHYPE/RF_GHYPE fallback
+    # for year >= 2016 to stay consistent with V2 diabetes_any / hypertension_*.
+    use_rf_fallback = year >= 2016
+
+    if use_rf_fallback:
+        rf_pd = _get_col_optional(batch, "RF_PDIAB")
+        rf_gd = _get_col_optional(batch, "RF_GDIAB")
+        if rf_pd is not None and rf_gd is not None:
+            pd_yes = _yn_to_bool(rf_pd)
+            gd_yes = _yn_to_bool(rf_gd)
+            either = pc.or_(pc.fill_null(pd_yes, False), pc.fill_null(gd_yes, False))
+            both_known = pc.and_(pc.is_valid(pd_yes), pc.is_valid(gd_yes))
+            diab = pc.if_else(either, pa.scalar(1, type=pa.int8()),
+                    pc.if_else(both_known, pa.scalar(2, type=pa.int8()),
+                               pa.scalar(None, type=pa.int8())))
+        else:
+            diab = pa.nulls(batch.num_rows, type=pa.int8())
+        rf_ch = _get_col_optional(batch, "RF_PHYPE")
+        if rf_ch is not None:
+            ch_yes = _yn_to_bool(rf_ch)
+            chyp = pc.if_else(pc.fill_null(ch_yes, False), pa.scalar(1, type=pa.int8()),
+                    pc.if_else(pc.is_valid(ch_yes), pa.scalar(2, type=pa.int8()),
+                               pa.scalar(None, type=pa.int8())))
+        else:
+            chyp = pa.nulls(batch.num_rows, type=pa.int8())
+        rf_gh = _get_col_optional(batch, "RF_GHYPE")
+        if rf_gh is not None:
+            gh_yes = _yn_to_bool(rf_gh)
+            phyp = pc.if_else(pc.fill_null(gh_yes, False), pa.scalar(1, type=pa.int8()),
+                    pc.if_else(pc.is_valid(gh_yes), pa.scalar(2, type=pa.int8()),
+                               pa.scalar(None, type=pa.int8())))
+        else:
+            phyp = pa.nulls(batch.num_rows, type=pa.int8())
+    else:
+        diab = _to_int_or_null(_get_col(batch, "URF_DIAB"), pa.int8())
+        chyp = _to_int_or_null(_get_col(batch, "URF_CHYPER"), pa.int8())
+        phyp = _to_int_or_null(_get_col(batch, "URF_PHYPER"), pa.int8())
 
     # === Smoking ===
     cig0_r_raw = _get_col_optional(batch, "CIG0_R")
@@ -616,9 +707,23 @@ def _harmonize_batch(batch: pa.RecordBatch, year: int) -> pa.Table:
         bmi_pp = pa.nulls(batch.num_rows, type=pa.float32())
         bmi_pp_r6 = pa.nulls(batch.num_rows, type=pa.int8())
 
-    # === Father's age, birth facility, attendant, payment, prior cesarean ===
-    fage_col = "FAGECOMB" if "FAGECOMB" in cols else "UFAGECOMB"
-    fage = _to_int_or_null(_get_col(batch, fage_col), pa.int16())
+    # === Father's age ===
+    # AUDIT D2 parity with V2: prefer FAGECOMB (revised-cert) when present,
+    # fall back to UFAGECOMB (unrevised).  For 2005-2011 linked this resolves
+    # UFAGECOMB; for 2012-2013 linked it picks up FAGECOMB@182-183 (the field
+    # NCHS moved for 2013 natality also lives here in the linked denom-plus
+    # layout); for 2014+ it reads FAGECOMB@147-148.
+    fagecomb_raw = _get_col_optional(batch, "FAGECOMB")
+    ufagecomb_raw = _get_col_optional(batch, "UFAGECOMB")
+    if fagecomb_raw is not None:
+        fagecomb = _to_int_or_null(fagecomb_raw, pa.int16())
+    else:
+        fagecomb = pa.nulls(batch.num_rows, type=pa.int16())
+    if ufagecomb_raw is not None:
+        ufagecomb = _to_int_or_null(ufagecomb_raw, pa.int16())
+    else:
+        ufagecomb = pa.nulls(batch.num_rows, type=pa.int16())
+    fage = pc.if_else(pc.is_null(fagecomb), ufagecomb, fagecomb)
     # Null out-of-range: valid 9-98; 99=unknown, <9 or >98 are invalid
     fage = pc.if_else(
         pc.and_(
@@ -628,6 +733,15 @@ def _harmonize_batch(batch: pa.RecordBatch, year: int) -> pa.Table:
         fage,
         pa.scalar(None, type=pa.int16()),
     )
+
+    # Categorical father-age fallback from FAGEREC11 (2005-2013 linked only).
+    # Recovers categorical age for 2012 linked births where raw age is blank.
+    fagerec11_raw = _get_col_optional(batch, "FAGEREC11")
+    if fagerec11_raw is not None:
+        fagerec11 = _to_int_or_null(fagerec11_raw, pa.int8())
+        fage_cat_rec11 = _fagerec11_to_cat(fagerec11)
+    else:
+        fage_cat_rec11 = pa.nulls(batch.num_rows, type=pa.string())
 
     # UBFACIL uses unrevised coding (same as PLDEL: 3=clinic, 4=residence, 5=other)
     # BFACIL uses revised coding (3-5=home, 6=clinic, 7=other)
@@ -816,11 +930,11 @@ def _harmonize_batch(batch: pa.RecordBatch, year: int) -> pa.Table:
             # Birth-side
             year_arr, restatus, is_foreign, cert_rev, mager, lbo, tbo,
             marital, marital_rpt_flag, hisp_origin, maternal_hisp, race_bridged, race_eth,
-            race_detail, race_bridge, educ_cat4, pn_start_month, pn_start_trim, previs,
+            race_detail, race_detail_15, race_bridge, educ_cat4, pn_start_month, pn_start_trim, previs,
             smoke_any, smoke_intensity, cig0_r, diab, chyp, phyp,
             plur, sex, gest_weeks, gest_src, preterm_r3, dbwt, dmeth, apgar5,
             bmi_pp, bmi_pp_r6,
-            fage, birth_fac, attend, pay_rec, prior_ces,
+            fage, fage_cat_rec11, birth_fac, attend, pay_rec, prior_ces,
             father_hisp, father_race_eth, father_educ_cat4,
             *ca_list, *ip_list,
             prior_ces_count, fert_drugs, art_concep,

@@ -3,10 +3,12 @@ Fixed-field positions for NCHS U.S. public-use natality (subset of variables).
 
 Layouts used in this repo:
 - **350-byte** record: 1990–2002 (`PUBLIC_US_1990_2002_FIELDS`; unrevised 1989 certificate)
-- **1350-byte** record: 2003 (`PUBLIC_US_2003_2004_FIELDS`)
-- **1500-byte** record: 2004–2005 (`PUBLIC_US_2003_2004_FIELDS` / `PUBLIC_US_2005_2010_FIELDS`)
-- **775-byte** record: 2006–2013 (same field list as 2005 subset)
-- **1345-byte** record: 2014–2020 (`PUBLIC_US_2014_2015_FIELDS`; positions match 2015–2020 User Guides for this subset)
+- **1350-byte** record: 2003 (`PUBLIC_US_2003_FIELDS`)
+- **1500-byte** record: 2004–2005 (`PUBLIC_US_2004_FIELDS` / `PUBLIC_US_2005_2010_FIELDS`)
+- **775-byte** record: 2006–2013 (same field list as 2005 subset, with added 2013-only fields)
+- **1345-byte** record: 2014–2024 (`PUBLIC_US_2014_2015_FIELDS`; positions match 2014–2015
+  User Guides. For 2016+ the URF_DIAB/CHYPER/PHYPER tail block at 1331–1333 is filler;
+  the harmonizer's RF_PDIAB/RF_GDIAB/RF_PHYPE/RF_GHYPE fallback covers these years.)
 
 Sources for 1990–2004 positions: NBER Stata dictionaries (natl{year}.dct)
   and CDC documentation (Nat{year}doc.pdf).
@@ -87,8 +89,13 @@ PUBLIC_US_2003_FIELDS: list[tuple[str, int, int]] = [
     ("LBO_REC", 212, 212),
     ("TBO_REC", 217, 217),
     ("RESTATUS", 138, 138),
-    ("FILLER_94_95", 94, 95), # Filler in 2003; MBCNTRY starts in 2004
     ("MRACE", 141, 142),
+    # MRACE15 is NOT at bytes 108-109 in the 2003 public-use layout. Raw-byte
+    # probing of Nat2003us.zip at those bytes returns 2-letter alphabetic codes
+    # (AC/XT/CN/LF/HO/AP/KA/ZA/...) — probably the middle two bytes of a 4-byte
+    # state/country-of-birth field around 107-110 — not the NCHS MRACE15 recode
+    # (which would be numeric 01-15). Leave the column absent from the spec so
+    # maternal_race_detail_15cat is null for 2003, matching the CODEBOOK.
     ("MRACEREC", 143, 143),
     ("UMHISP", 148, 148),
     ("MRACEHISP", 149, 149),
@@ -120,9 +127,13 @@ PUBLIC_US_2003_FIELDS: list[tuple[str, int, int]] = [
 ]
 
 # --- 2004: Dual certificate transition ---
-# Same as 2005 layout except DMETH_REC at 401 (not 403).
-# Position 89-90 is now MAGER (single-year age), same as 2005+.
-# Record length: 1500 bytes (same as 2005).
+# Record length is 1500 bytes (same as 2005), but several field positions still
+# match the 2003 layout rather than the 2005 layout:
+#   - DMETH_REC at 401 (2005 moves to 403)
+#   - ATTEND at 408 (2005 moves to 410) — verified against Nat2004doc.pdf p.45
+#     which shows `402-407 FILLER`, `408 ATTEND`, `409-414 FILLER`. Position 410
+#     is filler in 2004; reading ATTEND there produces 100% null.
+# Position 89-90 is MAGER (single-year age), same as 2005+ (not MAGER41 as in 2003).
 PUBLIC_US_2004_FIELDS: list[tuple[str, int, int]] = [
     ("DOB_YY", 15, 18),
     ("DOB_MM", 19, 20),
@@ -132,6 +143,9 @@ PUBLIC_US_2004_FIELDS: list[tuple[str, int, int]] = [
     ("RESTATUS", 138, 138),
     ("MBCNTRY", 94, 95),
     ("MRACE", 141, 142),
+    # MRACE15 is NOT at bytes 108-109 in the 2004 public-use layout (same caveat
+    # as the 2003 spec above — raw-byte probing of Nat2004us.zip returns
+    # 2-letter alpha codes, not the numeric 01-15 NCHS recode).
     ("MRACEREC", 143, 143),
     ("UMHISP", 148, 148),
     ("MRACEHISP", 149, 149),
@@ -157,7 +171,8 @@ PUBLIC_US_2004_FIELDS: list[tuple[str, int, int]] = [
     ("DBWT", 463, 466),
     ("UFAGECOMB", 184, 185),  # Father's combined age, unrevised/national (10-98, 99=unknown)
     ("UBFACIL", 42, 42),      # Birth facility, unrevised/national (1=hosp, 2=birth ctr, 3=clinic, 4=residence, 5=other, 9=unk)
-    ("ATTEND", 410, 410),     # Attendant at birth (1=MD, 2=DO, 3=CNM, 4=other midwife, 5=other, 9=unknown)
+    ("ATTEND", 408, 408),     # Attendant at birth — 2004 uses position 408 (same as 2003), NOT 410 (2005+).
+                               # Verified against Nat2004doc.pdf p.45.
     ("UFHISP", 195, 195),    # Father's Hispanic origin, unrevised/national (0=non-Hisp, 1-5=Hisp, 9=unknown)
     ("FRACEHISP", 196, 196),  # Father's race/Hispanic combined recode (1-8, 9=unknown)
 ]
@@ -195,13 +210,32 @@ PUBLIC_US_2005_2010_FIELDS: list[tuple[str, int, int]] = [
     ("COMBGEST", 451, 452),
     ("GESTREC3", 455, 455),
     ("DBWT", 463, 466),
-    ("UFAGECOMB", 184, 185),  # Father's combined age, unrevised/national (10-98, 99=unknown)
+    ("UFAGECOMB", 184, 185),  # Father's combined age, unrevised/national (10-98, 99=unknown).
+                               # Populated 2005-2011; blank 2012-2013 (NCHS moved / removed the field).
+    ("FAGECOMB", 182, 183),    # Father's combined age, revised-certificate (10-98, 99=unknown).
+                               # Populated on revised-certificate rows from 2006 onward
+                               # (empirical coverage: ~28% 2006 → 65% 2008 → 86% 2011 → 90% 2013),
+                               # tracking the revised-cert adoption curve. Blank on unrevised rows.
+                               # Harmonizer prefers FAGECOMB over UFAGECOMB when both are present;
+                               # the two values agree 100% in the overlap region (verified across
+                               # 2.1M sampled rows 2006-2011).
+    ("FAGEREC11", 186, 187),   # Father's age recode 11 (01=<15, 02=15-19, ..., 10=50+, 11=unknown).
+                               # Populated 2005-2013 (a categorical fallback when raw age is suppressed — 2012).
+    ("MRACE15", 108, 109),     # Mother's race recode 15 (01-15; 15=multiracial).
+                               # Empirically 100% BLANK at bytes 108-109 for 2005-2013 public-use
+                               # records. Kept in the spec as a placeholder for downstream checks;
+                               # the real MRACE15 data only starts 2014+ (see PUBLIC_US_2014_2015_FIELDS).
     ("UBFACIL", 42, 42),      # Birth facility, unrevised/national (1=hosp, 2=birth ctr, 3=clinic, 4=residence, 5=other, 9=unk)
     ("ATTEND", 410, 410),     # Attendant at birth (1=MD, 2=DO, 3=CNM, 4=other midwife, 5=other, 9=unknown)
     ("UFHISP", 195, 195),    # Father's Hispanic origin, unrevised/national (0=non-Hisp, 1-5=Hisp, 9=unknown)
     ("FRACEHISP", 196, 196),  # Father's race/Hispanic combined recode (1-8, 9=unknown)
     ("FEDUC", 197, 197),      # Father's education (1-8 categories, 9=unknown; filler/blank 2005-2008, valid 2009+ partial, 2011+ near-full)
     ("PAY_REC", 413, 413),    # Payment source recode (1-4, 9=unknown; filler/blank 2005-2008, valid 2009+ partial, 2011+ near-full)
+    ("RF_CESAR", 324, 324),    # Prior cesarean, revised-cert (Y/N/U).
+                               # Populated on revised-certificate rows from 2005 onward (empirical
+                               # coverage: 30.76% 2005 → 90.24% 2013, tracking cert adoption).
+    ("RF_CESARN", 325, 326),   # Number of prior cesareans, revised-cert (00-30, 99=unknown).
+                               # Same population dynamics as RF_CESAR (revised-cert-only, 2005-2013).
 ]
 
 # (field_name, start_pos, end_pos) — inclusive on both ends
@@ -211,7 +245,8 @@ PUBLIC_US_2014_2015_FIELDS: list[tuple[str, int, int]] = [
     ("RESTATUS", 104, 104),
     ("MAGER", 75, 76),
     ("MBSTATE_REC", 84, 84),
-    ("MRACE6", 107, 108),
+    ("MRACE6", 107, 107),     # Mother's Race Recode 6 (1 byte; values 1-6; code 6 = multiracial).
+    ("MRACE15", 108, 109),    # Mother's Race Recode 15 (2 bytes; values 01-15; 99=unknown)
     ("MBRACE", 110, 110),
     ("MHISP_R", 115, 115),
     ("MRACEHISP", 117, 117),
@@ -229,7 +264,10 @@ PUBLIC_US_2014_2015_FIELDS: list[tuple[str, int, int]] = [
     ("CIG3_R", 264, 264),
     ("BMI", 283, 286),
     ("BMI_R", 287, 287),
-    ("WTGAIN", 304, 305),        # Weight gain during pregnancy in pounds (00-97, 99=unknown)
+    ("WTGAIN", 304, 305),        # Weight gain during pregnancy in pounds (00-97 plain, 98="98+ lbs"
+                                  # top-code, 99=unknown). Verified via distribution: 98 has ~17× the
+                                  # frequency of 97 in every year, consistent with a top-code bucket
+                                  # rather than a second sentinel.
     ("RF_PDIAB", 313, 313),
     ("RF_GDIAB", 314, 314),
     ("RF_PHYPE", 315, 315),

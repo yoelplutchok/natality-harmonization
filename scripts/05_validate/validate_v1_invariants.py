@@ -73,6 +73,27 @@ def _count_true(arr: pa.Array) -> int:
     return int(pc.sum(pc.cast(arr, pa.int64())).as_py() or 0)
 
 
+def _ne(a, b):
+    """Null-safe inequality. Returns True when a and b are definitely not equal
+    (treating null as a value). Use this in invariant checks so that a null
+    violation does not silently read as 0."""
+    eq = pc.equal(a, b)
+    a_null = pc.is_null(a)
+    b_null = pc.is_null(b)
+    one_null_one_not = pc.xor(a_null, b_null)
+    both_null = pc.and_(a_null, b_null)
+    # not_equal when: neither is null AND eq is False, OR exactly one is null.
+    neither_null_but_ne = pc.fill_null(pc.invert(eq), False)
+    return pc.or_(neither_null_but_ne, one_null_one_not)
+
+
+def _safe_and(*parts):
+    """Null-safe AND: treat null operands as False so that a null condition
+    cannot silently propagate through pc.and_ and suppress a violation."""
+    from functools import reduce
+    return reduce(pc.and_, (pc.fill_null(p, False) for p in parts))
+
+
 def _parse_years(spec: str) -> list[int]:
     spec = spec.strip()
     if "-" in spec and "," not in spec:
@@ -145,6 +166,8 @@ def main() -> None:
         "year_outside_expected_range": 0,
         "bw_out_of_range": 0,
         "ga_out_of_range": 0,
+        # categorical-frame checks (non-null values must lie in the documented code set)
+        "mrace15_invalid_when_nonnull": 0,
         # smoking consistency
         "smoke_int_0_not_false": 0,
         "smoke_int_1_5_not_true": 0,
@@ -158,6 +181,10 @@ def main() -> None:
         # race/ethnicity consistency
         "race_eth_hisp_not_hispanic": 0,
         "race_eth_nh_bad_mapping": 0,
+        # race_eth must not be null when the source signals are present enough to label.
+        # Added after the 2020+ 100%-null-race_eth bug (audit C2) escaped consistency checks.
+        "race_eth_null_when_hisp_true": 0,
+        "race_eth_null_when_hisp_false_and_race_detail_valid": 0,
         # gestation source consistency
         "gest_src_pre2014_obstetric": 0,
         # sentinel clean consistency
@@ -178,13 +205,24 @@ def main() -> None:
         # new variable era-coverage checks
         "ca_nonnull_pre2014": 0,
         "infection_nonnull_pre2014": 0,
-        "prior_ces_count_nonnull_pre2014": 0,
+        "prior_ces_count_nonnull_pre2005": 0,
         "prior_ces_count_99_post2014": 0,
         "fertility_nonnull_pre2014": 0,
         "art_nonnull_pre2014": 0,
         "father_educ_nonnull_1995_2008": 0,
         "father_hisp_race_eth_mismatch": 0,
         "payment_source_nonnull_pre2009": 0,
+        # post-V4 additions (audit AUDIT_REPORT_V4.md gaps G1 + V4 suggestion)
+        "delivery_method_recode_invalid_value": 0,
+        # Year-aware companion (added after the combined 2026-04-22 audit):
+        # 2005+ DMETH_REC only takes values {1, 2, 9}; codes 3 or 4 in a 2005+ row
+        # indicate a regression in the 2003/2004 DELMETH5→9 remap branch.
+        "delivery_method_recode_post2004_out_of_set": 0,
+        "record_weight_null_when_survivor": 0,
+        # Symmetric check for deaths (added after the 2026-04-22 audit): a death
+        # with null record_weight is a data-integrity violation (weights are
+        # supposed to be ≥ 1.0 on linked death rows). Currently 0 in V3 linked.
+        "record_weight_null_when_death": 0,
     }
 
     # Optional columns for new-variable invariant checks
@@ -198,8 +236,48 @@ def main() -> None:
         "father_hispanic",
         "father_race_ethnicity_5",
         "payment_source_recode",
+        # Included regardless of era — always in V2 and V3. Listed here so the
+        # batch reader will pull them when present.
+        "delivery_method_recode",
+        # V3-linked-only; the record_weight_null_when_survivor and
+        # record_weight_null_when_death invariants silently skip when the
+        # column is absent (V2 natality).
+        "record_weight",
+        "infant_death",
+        # Categorical-frame check (mrace15_invalid_when_nonnull).
+        "maternal_race_detail_15cat",
     ]
     has_new_cols = {c: (c in cols) for c in optional_new}
+
+    # Auto-detect V3 linked input by the presence of the death-side columns.
+    # V3 has a genuine upstream-source divergence from V2 on 2009–2010 unrevised-cert
+    # rows: the linked denominator-plus layout for 2005–2013 retains MEDUC_REC /
+    # MPCB / CIG_1-3 bytes that the natality 2009–2010 public-use layout drops,
+    # so `maternal_education_cat4`, `prenatal_care_start_month`, and
+    # `smoking_intensity_max_recode6` are populated on ~2M V3 unrevised-cert rows
+    # where V2 leaves them null. Skip those three V2-only coverage invariants in
+    # V3 mode rather than nulling real upstream data — see
+    # `docs/COMPARABILITY.md` §"V3 linked vs V2 natality: 2009–2010 unrevised-cert
+    # field retention".
+    is_v3_linked = has_new_cols["infant_death"]
+
+    # Known upstream-NCHS exceptions (expected counts). A V3 linked run should
+    # report these values exactly; any deviation is a FAIL.
+    # Documented in `docs/VALIDATION.md` and `docs/COMPARABILITY.md`.
+    KNOWN_EXCEPTIONS: dict[str, int] = (
+        {"record_weight_null_when_survivor": 2} if is_v3_linked else {}
+    )
+
+    # Invariants skipped entirely in V3 linked mode (see is_v3_linked note above).
+    V3_SKIP: set[str] = (
+        {
+            "unrevised_2009_2013_has_educ",
+            "unrevised_2009_2013_has_pnmonth",
+            "unrevised_2009_2013_has_smokeint",
+        }
+        if is_v3_linked
+        else set()
+    )
 
     batch_cols = [
         "year",
@@ -209,6 +287,7 @@ def main() -> None:
         "maternal_hispanic",
         "maternal_race_bridged4",
         "maternal_race_ethnicity_5",
+        "maternal_race_detail",
         "maternal_education_cat4",
         "prenatal_care_start_month",
         "smoking_any_during_pregnancy",
@@ -227,7 +306,7 @@ def main() -> None:
         "infant_sex",
     ] + [c for c in optional_new if has_new_cols[c]]
 
-    _CORE_COUNT = 23  # number of core columns before optional new ones
+    _CORE_COUNT = 24  # number of core columns before optional new ones
 
     for batch in pf.iter_batches(batch_size=args.batch_rows, columns=batch_cols):
         (
@@ -238,6 +317,7 @@ def main() -> None:
             hisp,
             race4,
             race_eth,
+            race_detail_arr,
             educ,
             pnmonth,
             smoke_any,
@@ -257,7 +337,7 @@ def main() -> None:
         ) = batch.columns[:_CORE_COUNT]
 
         # Basic masks
-        is_res = pc.and_(pc.is_valid(foreign), pc.invert(foreign))
+        is_res = pc.fill_null(pc.and_(pc.is_valid(foreign), pc.invert(foreign)), False)
 
         # Track per-year totals (streaming)
         present_years = [int(y) for y in pc.unique(year).to_pylist() if y is not None]
@@ -314,30 +394,38 @@ def main() -> None:
             pc.and_(pc.equal(apgar, 99), pc.is_valid(apgar_clean))
         )
 
-        # certificate_revision allowed values
-        is_valid_cert = pc.or_(
+        # certificate_revision allowed values.
+        # Null-safe: a null cert_rev is itself a violation (cert_rev should never be null
+        # in the harmonized output). Prior to the V4 audit this check used raw pc.or_
+        # and would silently count null cert_rev as "not a violation" (null-FN class, G2).
+        is_valid_cert_raw = pc.or_(
             pc.or_(pc.equal(cert_rev, s_revised), pc.equal(cert_rev, s_unrevised)),
             pc.equal(cert_rev, s_unknown),
         )
-        violations["cert_rev_invalid_value"] += _count_true(pc.invert(is_valid_cert))
+        violations["cert_rev_invalid_value"] += _count_true(
+            pc.invert(pc.fill_null(is_valid_cert_raw, False))
+        )
 
-        # 2014+ must be revised_2003 (per V1 policy and implementation)
+        # 2014+ must be revised_2003 (per V1 policy and implementation).
+        # AUDIT D9: use _safe_and to guard against a future regression that
+        # ever introduces a null cert_rev value — null-in-cond would otherwise
+        # silently drop from the violation counter.
         y2014plus = pc.greater_equal(year, 2014)
         violations["cert_rev_2014plus_not_revised"] += _count_true(
-            pc.and_(y2014plus, pc.invert(pc.equal(cert_rev, s_revised)))
+            _safe_and(y2014plus, pc.invert(pc.fill_null(pc.equal(cert_rev, s_revised), False)))
         )
 
         # revised-only coverage constraints (2009–2013 unrevised should not have these)
         y2009_2013 = pc.and_(pc.greater_equal(year, 2009), pc.less_equal(year, 2013))
         is_unrev = pc.equal(cert_rev, s_unrevised)
         violations["unrevised_2009_2013_has_educ"] += _count_true(
-            pc.and_(pc.and_(y2009_2013, is_unrev), pc.invert(pc.is_null(educ)))
+            _safe_and(y2009_2013, is_unrev, pc.invert(pc.is_null(educ)))
         )
         violations["unrevised_2009_2013_has_pnmonth"] += _count_true(
-            pc.and_(pc.and_(y2009_2013, is_unrev), pc.invert(pc.is_null(pnmonth)))
+            _safe_and(y2009_2013, is_unrev, pc.invert(pc.is_null(pnmonth)))
         )
         violations["unrevised_2009_2013_has_smokeint"] += _count_true(
-            pc.and_(pc.and_(y2009_2013, is_unrev), pc.invert(pc.is_null(smoke_int)))
+            _safe_and(y2009_2013, is_unrev, pc.invert(pc.is_null(smoke_int)))
         )
 
         # smoking consistency
@@ -351,15 +439,15 @@ def main() -> None:
         int_is_6 = pc.equal(smoke_int, 6)
         int_is_1_5 = pc.and_(pc.greater_equal(smoke_int, 1), pc.less_equal(smoke_int, 5))
 
-        violations["smoke_int_0_not_false"] += _count_true(pc.and_(is_2003plus, pc.and_(int_is_0, pc.invert(pc.equal(smoke_any, False)))))
-        violations["smoke_int_1_5_not_true"] += _count_true(pc.and_(is_2003plus, pc.and_(int_is_1_5, pc.invert(pc.equal(smoke_any, True)))))
-        violations["smoke_int_6_not_null_any"] += _count_true(pc.and_(is_2003plus, pc.and_(int_is_6, pc.is_valid(smoke_any))))
+        violations["smoke_int_0_not_false"] += _count_true(_safe_and(is_2003plus, int_is_0, _ne(smoke_any, pa.scalar(False))))
+        violations["smoke_int_1_5_not_true"] += _count_true(_safe_and(is_2003plus, int_is_1_5, _ne(smoke_any, pa.scalar(True))))
+        violations["smoke_int_6_not_null_any"] += _count_true(_safe_and(is_2003plus, int_is_6, pc.is_valid(smoke_any)))
 
         violations["smoke_any_true_bad_int"] += _count_true(
-            pc.and_(is_2003plus, pc.and_(pc.equal(smoke_any, True), pc.invert(int_is_1_5)))
+            _safe_and(is_2003plus, pc.equal(smoke_any, True), pc.invert(pc.fill_null(int_is_1_5, False)))
         )
         violations["smoke_any_false_bad_int"] += _count_true(
-            pc.and_(is_2003plus, pc.and_(pc.equal(smoke_any, False), pc.invert(int_is_0)))
+            _safe_and(is_2003plus, pc.equal(smoke_any, False), pc.invert(pc.fill_null(int_is_0, False)))
         )
 
         # Hispanic consistency
@@ -367,13 +455,56 @@ def main() -> None:
         origin1_5 = pc.and_(pc.greater_equal(hisp_origin, 1), pc.less_equal(hisp_origin, 5))
         origin9 = pc.equal(hisp_origin, 9)
 
-        violations["hisp_origin_0_not_false"] += _count_true(pc.and_(origin0, pc.invert(pc.equal(hisp, False))))
-        violations["hisp_origin_1_5_not_true"] += _count_true(pc.and_(origin1_5, pc.invert(pc.equal(hisp, True))))
-        violations["hisp_origin_9_not_null"] += _count_true(pc.and_(origin9, pc.is_valid(hisp)))
+        violations["hisp_origin_0_not_false"] += _count_true(_safe_and(origin0, _ne(hisp, pa.scalar(False))))
+        violations["hisp_origin_1_5_not_true"] += _count_true(_safe_and(origin1_5, _ne(hisp, pa.scalar(True))))
+        violations["hisp_origin_9_not_null"] += _count_true(_safe_and(origin9, pc.is_valid(hisp)))
 
         # Race/ethnicity mapping consistency
+        # Null-safe: a null race_eth when hisp=True is a VIOLATION, not "no data".
         violations["race_eth_hisp_not_hispanic"] += _count_true(
-            pc.and_(pc.equal(hisp, True), pc.invert(pc.equal(race_eth, s_hispanic)))
+            _safe_and(pc.equal(hisp, True), _ne(race_eth, s_hispanic))
+        )
+
+        # Explicit non-null-when-expected checks. These would have caught the
+        # 2020+ 100%-null bug (audit C2) on their own.
+        violations["race_eth_null_when_hisp_true"] += _count_true(
+            _safe_and(pc.equal(hisp, True), pc.is_null(race_eth))
+        )
+        # For non-Hispanic births with a race_detail code that SHOULD map to a
+        # single bridged group, maternal_race_ethnicity_5 must not be null.
+        # Excluded by design (documented null-bridges):
+        #   - Pre-2003 MRACE codes 09-17 and 69-99 ("other"/unknown; no bridge available)
+        #   - 2020+ MRACE6 code 6 (multiracial; cannot be bridged to a single group)
+        # Era-aware rule:
+        #   - Pre-2020 (2-digit MRACE detail): rd_int in {01-08, 18-68} should bridge.
+        #   - 2020+ (1-digit MRACE6): rd_int in {1-5} should bridge (code 6 stays null).
+        rd_int = pc.cast(
+            pc.if_else(
+                pc.fill_null(pc.equal(pc.utf8_trim_whitespace(race_detail_arr), ""), False),
+                pa.scalar(None, type=pa.string()),
+                pc.utf8_trim_whitespace(race_detail_arr),
+            ),
+            pa.int16(), safe=False,
+        )
+        y_pre2020 = pc.less(year, 2020)
+        y_2020plus = pc.greater_equal(year, 2020)
+        pre2020_bridge = pc.or_(
+            pc.and_(
+                pc.fill_null(pc.greater_equal(rd_int, 1), False),
+                pc.fill_null(pc.less_equal(rd_int, 8), False),
+            ),
+            pc.and_(
+                pc.fill_null(pc.greater_equal(rd_int, 18), False),
+                pc.fill_null(pc.less_equal(rd_int, 68), False),
+            ),
+        )
+        post2020_bridge = pc.and_(
+            pc.fill_null(pc.greater_equal(rd_int, 1), False),
+            pc.fill_null(pc.less_equal(rd_int, 5), False),
+        )
+        should_bridge = pc.or_(_safe_and(y_pre2020, pre2020_bridge), _safe_and(y_2020plus, post2020_bridge))
+        violations["race_eth_null_when_hisp_false_and_race_detail_valid"] += _count_true(
+            _safe_and(pc.equal(hisp, False), should_bridge, pc.is_null(race_eth))
         )
         # For non-Hispanic (hisp == False), race_eth must match race4 mapping when race4 is present.
         is_nh = pc.equal(hisp, False)
@@ -394,82 +525,156 @@ def main() -> None:
         # Only enforce when non-Hispanic and race4 is present (1-4)
         race4_present = pc.and_(pc.greater_equal(race4, 1), pc.less_equal(race4, 4))
         violations["race_eth_nh_bad_mapping"] += _count_true(
-            pc.and_(pc.and_(is_nh, race4_present), pc.invert(mapped_ok))
+            _safe_and(is_nh, race4_present, pc.invert(pc.fill_null(mapped_ok, False)))
         )
 
         # Gestation source consistency (no obstetric estimate pre-2014)
         pre2014 = pc.less_equal(year, 2013)
         violations["gest_src_pre2014_obstetric"] += _count_true(
-            pc.and_(pre2014, pc.equal(gest_src, s_ob))
+            _safe_and(pre2014, pc.equal(gest_src, s_ob))
         )
 
         # Sentinel clean consistency
-        violations["ga99_clean_not_null"] += _count_true(pc.and_(pc.equal(ga, 99), pc.is_valid(ga_clean)))
-        violations["bw9999_clean_not_null"] += _count_true(pc.and_(pc.equal(bw, 9999), pc.is_valid(bw_clean)))
+        violations["ga99_clean_not_null"] += _count_true(_safe_and(pc.equal(ga, 99), pc.is_valid(ga_clean)))
+        violations["bw9999_clean_not_null"] += _count_true(_safe_and(pc.equal(bw, 9999), pc.is_valid(bw_clean)))
 
-        # Derived logic consistency (where clean values are present)
+        # Derived logic consistency (where clean values are present).
+        # Null-safe: a null derived boolean (e.g. lbw=null) when bw_clean is known
+        # is a genuine violation that used to be silently suppressed.
         lbw_expected = pc.less(bw_clean, 2500)
-        lbw_mismatch = pc.and_(pc.is_valid(bw_clean), pc.not_equal(lbw, lbw_expected))
-        violations["lbw_logic_mismatch"] += _count_true(lbw_mismatch)
+        violations["lbw_logic_mismatch"] += _count_true(
+            _safe_and(pc.is_valid(bw_clean), _ne(lbw, lbw_expected))
+        )
 
         pre_expected = pc.less(ga_clean, 37)
-        pre_mismatch = pc.and_(pc.is_valid(ga_clean), pc.not_equal(preterm, pre_expected))
-        violations["preterm_logic_mismatch"] += _count_true(pre_mismatch)
+        violations["preterm_logic_mismatch"] += _count_true(
+            _safe_and(pc.is_valid(ga_clean), _ne(preterm, pre_expected))
+        )
 
         singleton_expected = pc.equal(plur, 1)
-        singleton_mismatch = pc.and_(pc.is_valid(plur), pc.not_equal(singleton, singleton_expected))
-        violations["singleton_logic_mismatch"] += _count_true(singleton_mismatch)
+        violations["singleton_logic_mismatch"] += _count_true(
+            _safe_and(pc.is_valid(plur), _ne(singleton, singleton_expected))
+        )
 
         # ----- New variable invariant checks -----
         pre2014 = pc.less(year, 2014)
 
+        # AUDIT D9: wrap era-coverage checks in _safe_and so a null year or null
+        # target column cannot silently drop rows from the violation counters.
         if has_new_cols["ca_anencephaly"]:
             ca_col = batch.column("ca_anencephaly")
-            violations["ca_nonnull_pre2014"] += _count_true(pc.and_(pre2014, pc.is_valid(ca_col)))
+            violations["ca_nonnull_pre2014"] += _count_true(_safe_and(pre2014, pc.is_valid(ca_col)))
 
         if has_new_cols["infection_gonorrhea"]:
             inf_col = batch.column("infection_gonorrhea")
-            violations["infection_nonnull_pre2014"] += _count_true(pc.and_(pre2014, pc.is_valid(inf_col)))
+            violations["infection_nonnull_pre2014"] += _count_true(_safe_and(pre2014, pc.is_valid(inf_col)))
 
         if has_new_cols["prior_cesarean_count"]:
             pcc = batch.column("prior_cesarean_count")
-            violations["prior_ces_count_nonnull_pre2014"] += _count_true(pc.and_(pre2014, pc.is_valid(pcc)))
+            # AUDIT D3: prior_cesarean_count is populated on revised-cert rows
+            # starting 2005 (RF_CESARN@325-326 in 2005-2013 spec; @332-333 in 2014+).
+            # Pre-2005 has no RF_CESARN field — should be 100% null there.
+            pre2005 = pc.less(year, 2005)
+            violations["prior_ces_count_nonnull_pre2005"] += _count_true(_safe_and(pre2005, pc.is_valid(pcc)))
             violations["prior_ces_count_99_post2014"] += _count_true(
-                pc.and_(pc.greater_equal(year, 2014), pc.equal(pcc, pa.scalar(99, type=pa.int8())))
+                _safe_and(pc.greater_equal(year, 2014), pc.equal(pcc, pa.scalar(99, type=pa.int8())))
             )
 
         if has_new_cols["fertility_enhancing_drugs"]:
             fert = batch.column("fertility_enhancing_drugs")
-            violations["fertility_nonnull_pre2014"] += _count_true(pc.and_(pre2014, pc.is_valid(fert)))
+            violations["fertility_nonnull_pre2014"] += _count_true(_safe_and(pre2014, pc.is_valid(fert)))
 
         if has_new_cols["assisted_reproductive_tech"]:
             art = batch.column("assisted_reproductive_tech")
-            violations["art_nonnull_pre2014"] += _count_true(pc.and_(pre2014, pc.is_valid(art)))
+            violations["art_nonnull_pre2014"] += _count_true(_safe_and(pre2014, pc.is_valid(art)))
 
         if has_new_cols["father_education_cat4"]:
             feduc = batch.column("father_education_cat4")
             y1995_2008 = pc.and_(pc.greater_equal(year, 1995), pc.less_equal(year, 2008))
-            violations["father_educ_nonnull_1995_2008"] += _count_true(pc.and_(y1995_2008, pc.is_valid(feduc)))
+            violations["father_educ_nonnull_1995_2008"] += _count_true(_safe_and(y1995_2008, pc.is_valid(feduc)))
 
         if has_new_cols["father_hispanic"] and has_new_cols["father_race_ethnicity_5"]:
             f_hisp = batch.column("father_hispanic")
             f_re5 = batch.column("father_race_ethnicity_5")
             # If father_hispanic == True and father_race_ethnicity_5 is valid,
-            # it must be "Hispanic"
+            # it must be "Hispanic".  Uses _safe_and + _ne to stay null-safe.
             violations["father_hisp_race_eth_mismatch"] += _count_true(
-                pc.and_(
+                _safe_and(
                     pc.equal(f_hisp, True),
-                    pc.and_(
-                        pc.is_valid(f_re5),
-                        pc.invert(pc.equal(f_re5, pa.scalar("Hispanic", type=pa.string()))),
-                    ),
+                    pc.is_valid(f_re5),
+                    _ne(f_re5, pa.scalar("Hispanic", type=pa.string())),
                 )
             )
 
         if has_new_cols["payment_source_recode"]:
             pay = batch.column("payment_source_recode")
             pre2009 = pc.less(year, 2009)
-            violations["payment_source_nonnull_pre2009"] += _count_true(pc.and_(pre2009, pc.is_valid(pay)))
+            violations["payment_source_nonnull_pre2009"] += _count_true(_safe_and(pre2009, pc.is_valid(pay)))
+
+        # G1 (post-V4): delivery_method_recode must be in {1, 2, 3, 4, 9} when populated.
+        # Catches (a) regression of the 2003-2004 DELMETH5→9 remap, (b) post-2004 code-5
+        # leaks, and (c) any future parser bug that writes an unexpected integer.
+        if has_new_cols["delivery_method_recode"]:
+            dmr = batch.column("delivery_method_recode")
+            in_allowed = pc.fill_null(
+                pc.or_(
+                    pc.or_(
+                        pc.or_(pc.equal(dmr, pa.scalar(1, type=pa.int8())),
+                               pc.equal(dmr, pa.scalar(2, type=pa.int8()))),
+                        pc.or_(pc.equal(dmr, pa.scalar(3, type=pa.int8())),
+                               pc.equal(dmr, pa.scalar(4, type=pa.int8()))),
+                    ),
+                    pc.equal(dmr, pa.scalar(9, type=pa.int8())),
+                ),
+                False,
+            )
+            violations["delivery_method_recode_invalid_value"] += _count_true(
+                _safe_and(pc.is_valid(dmr), pc.invert(in_allowed))
+            )
+
+            # Year-aware companion: 2005+ DMETH_REC only takes {1, 2, 9}, so a
+            # 2005+ row with code 3 or 4 indicates either (a) a regression in
+            # the 2003/2004 DELMETH5→9 remap branch or (b) garbage data.
+            y_post2004 = pc.greater_equal(year, 2005)
+            dmr_is_3_or_4 = pc.or_(
+                pc.equal(dmr, pa.scalar(3, type=pa.int8())),
+                pc.equal(dmr, pa.scalar(4, type=pa.int8())),
+            )
+            violations["delivery_method_recode_post2004_out_of_set"] += _count_true(
+                _safe_and(y_post2004, pc.is_valid(dmr), dmr_is_3_or_4)
+            )
+
+        # V4 suggestion: record_weight must not be null for survivors.
+        # V3-linked-only; silently skipped when both columns aren't present.
+        if has_new_cols["record_weight"] and has_new_cols["infant_death"]:
+            rw = batch.column("record_weight")
+            dead = batch.column("infant_death")
+            violations["record_weight_null_when_survivor"] += _count_true(
+                _safe_and(pc.equal(dead, pa.scalar(False)), pc.is_null(rw))
+            )
+            # Symmetric check: deaths must not have null record_weight.
+            violations["record_weight_null_when_death"] += _count_true(
+                _safe_and(pc.equal(dead, pa.scalar(True)), pc.is_null(rw))
+            )
+
+        # F16 (2026-04-22 audit): maternal_race_detail_15cat must contain only
+        # values matching /^(0[1-9]|1[0-5])$/ when non-null. This is the
+        # categorical-frame check that would have caught the 2003/2004 garbage
+        # (2-letter alpha codes like 'AC', 'XT', 'KA', 'LF') on ingest.
+        if has_new_cols["maternal_race_detail_15cat"]:
+            r15 = batch.column("maternal_race_detail_15cat")
+            # Trim any accidental padding before matching
+            r15_trim = pc.utf8_trim_whitespace(pc.cast(r15, pa.string()))
+            nonblank = pc.fill_null(pc.and_(pc.is_valid(r15_trim), pc.not_equal(r15_trim, "")), False)
+            # Validity: any of the numeric labels "01".."15"
+            valid_labels = [f"{i:02d}" for i in range(1, 16)]
+            is_valid_label = pc.fill_null(
+                pc.is_in(r15_trim, value_set=pa.array(valid_labels, type=pa.string())),
+                False,
+            )
+            violations["mrace15_invalid_when_nonnull"] += _count_true(
+                _safe_and(nonblank, pc.invert(is_valid_label))
+            )
 
     # ===== Null-rate discontinuity detection =====
     # Second pass: compute per-variable, per-year null rates and flag >5 ppt year-over-year jumps.
@@ -480,6 +685,9 @@ def main() -> None:
         "smoking_intensity_max_recode6", "diabetes_any", "hypertension_chronic",
         "hypertension_gestational", "gestational_age_weeks", "birthweight_grams",
         "delivery_method_recode", "apgar5", "father_age",
+        # Added 2026-04-22 audit: would have flagged MRACE15 garbage (2002→2003
+        # and 2004→2005 null-rate swings of ±100 ppt) as a loud signal of F1.
+        "maternal_race_detail", "maternal_race_detail_15cat",
     ]
     null_rate_cols = [c for c in null_rate_cols if c in cols]
 
@@ -579,14 +787,43 @@ def main() -> None:
     lines.append(f"Years: {min_year}–{max_year}" if min_year != max_year else f"Years: {min_year}")
     lines.append(f"- Year summary CSV: `{out_csv}`")
     lines.append("")
-    lines.append("## Invariant checks (should all be 0)")
+    mode_label = "V3 linked" if is_v3_linked else "V2 natality"
+    lines.append(f"Mode: **{mode_label}** (auto-detected from schema)")
+    if is_v3_linked:
+        lines.append("")
+        lines.append(
+            "In V3 linked mode, three V2-only structural-coverage invariants "
+            "(`unrevised_2009_2013_has_educ`, `unrevised_2009_2013_has_pnmonth`, "
+            "`unrevised_2009_2013_has_smokeint`) are **skipped** because the linked "
+            "denominator-plus layout for 2005–2013 retains MEDUC_REC/MPCB/CIG_1-3 "
+            "bytes that the natality 2009–2010 public-use layout drops. See "
+            "`docs/COMPARABILITY.md` §\"V3 linked vs V2 natality: 2009–2010 unrevised-cert "
+            "field retention\". Also, `record_weight_null_when_survivor` is allowed "
+            "up to 2 (upstream NCHS quirk: 1 row in 2014 + 1 in 2015)."
+        )
+    lines.append("")
+    lines.append("## Invariant checks (should all be 0 unless a known exception applies)")
     lines.append("")
     any_fail = False
     for k in sorted(violations):
         v = violations[k]
-        if v != 0:
+        if k in V3_SKIP:
+            lines.append(f"- `{k}`: {v} _(skipped — V2-only, see §4.2 note)_")
+            continue
+        expected = KNOWN_EXCEPTIONS.get(k, 0)
+        if v == expected:
+            suffix = ""
+            if expected:
+                suffix = f" _(within known-exception budget of {expected})_"
+            lines.append(f"- `{k}`: {v}{suffix}")
+        elif expected and v <= expected:
+            lines.append(f"- `{k}`: {v} _(within known-exception budget of {expected})_")
+        else:
             any_fail = True
-        lines.append(f"- `{k}`: {v}")
+            if expected:
+                lines.append(f"- `{k}`: {v} **(exceeds known-exception budget of {expected})**")
+            else:
+                lines.append(f"- `{k}`: {v}")
     lines.append("")
     lines.append("## Certificate revision by year (counts)")
     lines.append("")

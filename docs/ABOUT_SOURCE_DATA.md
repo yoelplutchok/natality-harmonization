@@ -10,7 +10,7 @@ Layouts and coding change across years and certificate revisions. This project h
 
 **NCHS period natality public-use files**:
 
-- `Nat{year}.zip` for 1990-1993 (US records only despite lacking the "us" suffix)
+- `Nat{year}.zip` for 1990-1993 (lacks the "us" suffix; contains a small foreign-resident tail of ~0.1%, identifiable via `RESTATUS == 4`)
 - `Nat{year}us.zip` for 1994-2024 (US-only)
 
 Each zip contains a single fixed-width text file. Layout varies by year (350 to 1500 bytes per record). The annual User Guide PDF is the layout authority.
