@@ -150,9 +150,9 @@ The harmonized `certificate_revision` column takes one of four values:
 - **Attendant at birth** (`attendant_at_birth`)
   - **Why partial**: coding is harmonized (1=MD, 2=DO, 3=CNM, etc.) but underlying certification/reporting context changed with the 2003 certificate.
 
-- **Prior cesarean** (`prior_cesarean`)
-  - **Availability**: null for 1990–2013 (the underlying DCSEZD / URF_CESAR fields are either absent from the public-use layouts used here or were not wired into the harmonizer). Populated from `RF_CESAR` (Y/N/U) for 2014–2024.
-  - **Rule**: usable 2014–2024 only. For a cross-era "any prior cesarean" signal before 2014, use `delivery_method_recode` (codes 2/4 are the VBAC / repeat-cesarean tracer for 1990–2004; no equivalent exists for 2005–2013 public-use).
+- **Prior cesarean** (`prior_cesarean`, `prior_cesarean_count`)
+  - **Availability**: `RF_CESAR` (Y/N/U) and `RF_CESARN` (0–30 count) are revised-certificate-only fields. In the 2005–2013 layout they live at bytes 324 and 325–326; in the 2014+ layout at bytes 331 and 332–333. Both are null for 1990–2004 (those public-use layouts carry no Y/N/U prior-cesarean field). Coverage on the remaining years tracks revised-cert adoption: 30.8% of rows populated in 2005, 77.1% in 2010, 90.2% in 2013, and ~96–100% from 2014+.
+  - **Rule**: for 2005–2013, restrict to `certificate_revision == 'revised_2003'` (or drop nulls) for a revision-consistent subset; for 2014–2024, the field is populated on essentially every row. For a cross-era "any prior cesarean" signal before 2005, use `delivery_method_recode` codes 2/4 (VBAC / repeat-cesarean tracer for 1990–2004; no equivalent exists for 2005–2013 unrevised-cert public-use rows).
 
 - **Father Hispanic origin** (`father_hispanic`)
   - **Why partial**: 1990–2002 uses `ORFATH`; 2003–2013 uses `UFHISP`; 2014+ uses `FHISP_R`. All use 0=non-Hispanic, 1–5=Hispanic coding, but reporting context and item non-response rates differ by era.
@@ -173,7 +173,6 @@ The harmonized `certificate_revision` column takes one of four values:
 - `smoking_pre_pregnancy_recode6` (2014–2024 only; `CIG0_R`)
 - `bmi_prepregnancy`, `bmi_prepregnancy_recode6` (2014–2024 only; NCHS positions 283-287. Null for all pre-2014 years.)
 - `payment_source_recode` (2009–2024; partial coverage 2009–2010 from early-adopter states; near-full coverage 2011+; complete 2014+. Null for all pre-2009 years.)
-- `prior_cesarean_count` (2014–2024 only; `RF_CESARN`. 0–30 = count, 99→null.)
 - `fertility_enhancing_drugs` (2014–2024 only; `RF_FEDRG`. Note: high null rate because X="Not Applicable" → null.)
 - `assisted_reproductive_tech` (2014–2024 only; `RF_ARTEC`.)
 - `pre_pregnancy_diabetes` (2014–2024 only; `RF_PDIAB`. Finer-grained than `diabetes_any`.)

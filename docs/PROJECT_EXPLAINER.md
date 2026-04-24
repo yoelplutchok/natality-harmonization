@@ -364,7 +364,8 @@ These variables are available across all or most years, but have known structura
 
 These variables exist only for recent years and should not be compared across eras:
 
-- **2014-2024 only**: Pre-pregnancy BMI, weight gain, NICU admission, induction of labor, breastfed at discharge, 12 congenital anomaly indicators, 5 infection indicators, fertility treatment, prior cesarean count, pre-pregnancy diabetes (separate from gestational)
+- **2014-2024 only**: Pre-pregnancy BMI, weight gain, NICU admission, induction of labor, breastfed at discharge, 12 congenital anomaly indicators, 5 infection indicators, fertility treatment, pre-pregnancy diabetes (separate from gestational)
+- **2005-2024 with revised-certificate coverage ramp-up**: `prior_cesarean` (Y/N), `prior_cesarean_count` (0–30 count). Both are null for 1990–2004, populated on revised-cert rows starting 2005 (30.8% of births that year), ramping to 90.2% by 2013 and ~96–100% from 2014+. See `docs/FAQ.md` "Why is `prior_cesarean` null for 1990–2004…" and `docs/COMPARABILITY.md` §"Prior cesarean".
 - **2009-2024 only**: Payment source (Medicaid, private insurance, etc.)
 
 ---

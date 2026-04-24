@@ -332,3 +332,81 @@ Applied in response to the `AUDIT_REPORT_FRESH_5.md` findings. Every one of the 
 
 No parquet files were regenerated. Data is unchanged; only docs, validator code, and validation reports changed.
 
+---
+
+# Fix Log — 2026-04-24 audit v5.1 remediation
+
+Applied in response to a follow-up external audit ("fresh-external-audit-v5.canvas.tsx") that surfaced two real bugs the prior round missed — one pre-existing docs drift, one regression I introduced in V5-FIX-6. Both are docs-only.
+
+## Material
+
+### V5.1-FIX-1 `prior_cesarean_count` years_available was stale (schema said 2014–2024; shipped data is 2005–2024)
+
+- **What was wrong**: `metadata/harmonized_schema.csv` listed `prior_cesarean_count` as `years_available=2014-2024`, `raw_source_by_year="2014-2024: RF_CESARN@332-333"`, `comparability_class=within-era`, note "Not available before 2014." In reality `scripts/01_import/field_specs.py` reads `RF_CESARN@325-326` in the 2005–2013 era and the shipped parquet carries real data for those years (1.27 M rows populated in 2005, 3.48 M in 2012, 3.55 M in 2013 — matching `prior_cesarean` coverage exactly). The `prior_cesarean` (bool) schema entry was already correct at "2005-2024"; only the `_count` entry, CODEBOOK, COMPARABILITY, FAQ, PROJECT_EXPLAINER, and ABOUT_SOURCE_DATA were stale. Consequence: a researcher filtering `year >= 2014` based on the schema would silently drop ~15 M valid pre-2014 observations.
+- **What was done**: updated the 6 stale doc locations to state 2005–2024 with revised-cert-only coverage (30.7% of 2005 rows ramping to 90.2% in 2013 and ~96–100% from 2014+). Also fixed a sibling error in `docs/COMPARABILITY.md` §"Prior cesarean" that had claimed `prior_cesarean` (bool) was "null for 1990–2013" when it's actually null only for 1990–2004. Specific files:
+  - `metadata/harmonized_schema.csv` — `prior_cesarean_count` row: `years_available` 2014-2024 → 2005-2024; `raw_source_by_year` now lists both era positions; `comparability_class` within-era → partial; note rewritten to mirror `prior_cesarean`.
+  - `docs/CODEBOOK.md` — same updates in the `prior_cesarean_count` row.
+  - `docs/COMPARABILITY.md` — the `- **Prior cesarean**` subsection rewritten to cover both bool and count, with corrected availability (null 1990–2004, ramping 2005–2013, ~96–100% 2014+); the stray `- prior_cesarean_count (2014–2024 only; ...)` bullet removed from the "Within-era only" list.
+  - `docs/FAQ.md` — `prior_cesarean_count` removed from the 2014+-only list; a one-line note added to the existing "Why is `prior_cesarean` null…" Q&A stating the `_count` column has identical coverage.
+  - `docs/PROJECT_EXPLAINER.md` — `prior cesarean count` removed from the "2014-2024 only" bullet; a new "2005-2024 with revised-certificate coverage ramp-up" bullet added that covers both `prior_cesarean` and `prior_cesarean_count`.
+  - `docs/ABOUT_SOURCE_DATA.md` — "(and prior cesarean count for 2014+)" → accurate era-ramp description.
+- **Verify**:
+  ```bash
+  $ python3 -c "
+  import pyarrow.parquet as pq, pyarrow.compute as pc, pyarrow as pa
+  pf = pq.ParquetFile('output/harmonized/natality_v2_harmonized_derived.parquet')
+  counts = {}
+  for b in pf.iter_batches(batch_size=500_000, columns=['year','prior_cesarean_count']):
+      ya, pcc = b.column(0), b.column(1)
+      for y in [2005, 2012, 2013, 2014]:
+          m = pc.equal(ya, y)
+          t = int(pc.sum(pc.cast(m, pa.int64())).as_py() or 0)
+          n = int(pc.sum(pc.cast(pc.fill_null(pc.and_(m, pc.is_valid(pcc)), False), pa.int64())).as_py() or 0)
+          counts[y] = (counts.get(y, (0,0))[0] + t, counts.get(y, (0,0))[1] + n)
+  for y, (t, n) in sorted(counts.items()):
+      print(f'{y}: total={t:,} populated={n:,} ({n/t*100:.2f}%)')
+  "
+  2005: total=4,145,619 populated=1,272,269 (30.69%)
+  2012: total=3,960,796 populated=3,482,581 (87.93%)
+  2013: total=3,940,764 populated=3,552,706 (90.15%)
+  2014: total=3,998,175 populated=3,845,909 (96.19%)
+  ```
+
+### V5.1-FIX-2 VALIDATION.md FAGECOMB/RF_CESAR description was wrong (V5-FIX-6 regression)
+
+- **What was wrong**: the V5-FIX-6 edit to `docs/VALIDATION.md` line 162 said "FAGECOMB … ~61% populated in 2012 and 2013" and "RF_CESAR … first populated in 2013." Both numbers are wrong:
+  - Raw `FAGECOMB` is **88.26% nonblank** in 2012 and **90.45% in 2013** (exactly matching revised-cert share in each year) — the "~61%" came from a 500 k-row first-batch sample, not the full file. After the harmonizer maps sentinel 99→null, the resulting `father_age` column is populated on ~77% (2012) and ~79% (2013) of rows — that's the number that belongs in a user-facing doc, and it's already correctly stated in `docs/FAQ.md` line 106.
+  - `RF_CESAR` is **first populated in 2005** (30.8% of rows), ramping with cert adoption to 90.2% by 2013 — exactly as already documented correctly in `docs/FAQ.md` line 112. The "first populated in 2013" claim in VALIDATION.md contradicted FAQ.md.
+- **What was done**: rewrote `docs/VALIDATION.md` bullet so it: (a) gives the correct `FAGECOMB` raw-nonblank rates (88.26% / 90.45%) and the correct post-99→null `father_age` coverage (~77% / ~79%); (b) states `RF_CESAR` is first populated in 2005 with the cert-adoption ramp; (c) points the reader to the FAQ entry for the full year-by-year coverage table. Did NOT touch the corresponding `father_age` schema note ("~77-79%"), which was independently correct.
+- **Verify**:
+  ```bash
+  $ python3 -c "
+  import pyarrow.parquet as pq, pyarrow.compute as pc, pyarrow as pa
+  for y in [2011, 2012, 2013]:
+      pf = pq.ParquetFile(f'output/yearly_clean/natality_{y}_core.parquet')
+      t = b = rfb = 0
+      for batch in pf.iter_batches(batch_size=500_000, columns=['FAGECOMB','RF_CESAR']):
+          fg, rf = batch.column(0), batch.column(1)
+          t += len(fg)
+          b += int(pc.sum(pc.cast(pc.equal(pc.utf8_trim_whitespace(fg), ''), pa.int64())).as_py() or 0)
+          rfb += int(pc.sum(pc.cast(pc.equal(pc.utf8_trim_whitespace(rf), ''), pa.int64())).as_py() or 0)
+      print(f'{y}: FAGECOMB nonblank={((t-b)/t)*100:.2f}%  RF_CESAR nonblank={((t-rfb)/t)*100:.2f}%')
+  "
+  2011: FAGECOMB nonblank=85.79%  RF_CESAR nonblank=85.79%
+  2012: FAGECOMB nonblank=88.26%  RF_CESAR nonblank=88.26%
+  2013: FAGECOMB nonblank=90.45%  RF_CESAR nonblank=90.45%
+  ```
+
+### Files touched in this patch
+
+- `metadata/harmonized_schema.csv` — one-row update on `prior_cesarean_count`
+- `docs/CODEBOOK.md` — one-row update on `prior_cesarean_count`
+- `docs/COMPARABILITY.md` — `prior_cesarean` subsection rewrite + removal of `_count` bullet from within-era list
+- `docs/FAQ.md` — one-line append in prior_cesarean Q&A + removed `_count` from 2014+-only list
+- `docs/PROJECT_EXPLAINER.md` — moved `prior cesarean count` out of the 2014-2024 bullet into a new 2005–2024-with-ramp bullet
+- `docs/ABOUT_SOURCE_DATA.md` — one-line update
+- `docs/VALIDATION.md` — FAGECOMB/RF_CESAR bullet rewrite
+
+No schema structural changes, no pipeline changes, no data changes, no SHA-256 changes. Parquets, embedded metadata, and PROVENANCE.md all unaffected.
+
+

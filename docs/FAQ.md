@@ -113,6 +113,8 @@ For analyses that need father age for *every* row in 2005–2013, use **`father_
 
 For 1990–2004, the public-use layouts carry no Y/N/U prior-cesarean field at all. The closest tracer is `delivery_method_recode`: codes 2 (VBAC) and 4 (repeat cesarean) together identify a mother with a known prior cesarean. This tracer is only available 1990–2004 because the delivery-method coding changed at 2005 (3-category vs. 5-category).
 
+The companion `prior_cesarean_count` column (0–30 count of prior cesareans, with 99→null) has identical coverage — 2005–2024, revised-cert-only in 2005–2013, and ~96–100% in 2014+.
+
 ## How do I compute the cesarean rate across 1990–2024?
 
 `delivery_method_recode` uses two different coding frames with the boundary at **2005** (not 2003). You need a year-aware rule:
@@ -175,7 +177,7 @@ The 2014+ revised certificate added several within-era variables not available i
 - `bmi_prepregnancy`, `bmi_prepregnancy_recode6`
 - `smoking_pre_pregnancy_recode6`
 - 12 congenital anomaly booleans, 5 infection booleans
-- `prior_cesarean_count`, `fertility_enhancing_drugs`, `assisted_reproductive_tech`
+- `fertility_enhancing_drugs`, `assisted_reproductive_tech`
 - `payment_source_recode` (available 2009+ but full coverage only from 2014+)
 
 All are null for pre-2014 years.
