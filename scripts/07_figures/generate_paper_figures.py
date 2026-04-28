@@ -57,8 +57,8 @@ def fig1_pipeline():
         (3.0, 2.0, "Parsing\n5 record layouts\nfield_specs.py", box_style),
         (5.2, 2.0, "Harmonization\n3 certificate eras\ncommon schema", box_style),
         (7.4, 2.0, "Derivation\nLBW, preterm,\ncause groups", box_style),
-        (7.4, 0.5, "Validation\n183 + 35 targets\n34 invariants", val_style),
-        (5.2, 0.5, "Outputs\nV2: 82 cols\nV3: 87 cols", out_style),
+        (7.4, 0.5, "Validation\n183 + 35 targets\n41 invariants", val_style),
+        (5.2, 0.5, "Outputs\nV2: 84 cols\nV3: 94 cols", out_style),
     ]
 
     for x, y, text, style in boxes:

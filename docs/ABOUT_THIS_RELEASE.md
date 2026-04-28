@@ -85,7 +85,7 @@ See `docs/VALIDATION.md` for details and `output/validation/` for machine-readab
 
 ## How to reproduce
 
-From repo root (after downloading raw inputs per `docs/DOWNLOAD_INSTRUCTIONS.md`):
+From repo root (after downloading raw inputs per the README "Quick reproduce" section):
 
 ```bash
 # V2 Natality (1990-2024)

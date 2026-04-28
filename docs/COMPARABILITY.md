@@ -151,7 +151,7 @@ The harmonized `certificate_revision` column takes one of four values:
   - **Why partial**: coding is harmonized (1=MD, 2=DO, 3=CNM, etc.) but underlying certification/reporting context changed with the 2003 certificate.
 
 - **Prior cesarean** (`prior_cesarean`, `prior_cesarean_count`)
-  - **Availability**: `RF_CESAR` (Y/N/U) and `RF_CESARN` (0–30 count) are revised-certificate-only fields. In the 2005–2013 layout they live at bytes 324 and 325–326; in the 2014+ layout at bytes 331 and 332–333. Both are null for 1990–2004 (those public-use layouts carry no Y/N/U prior-cesarean field). Coverage on the remaining years tracks revised-cert adoption: 30.8% of rows populated in 2005, 77.1% in 2010, 90.2% in 2013, and ~96–100% from 2014+.
+  - **Availability**: `RF_CESAR` (Y/N/U) and `RF_CESARN` (0–30 count) are revised-certificate-only fields. In the 2005–2013 layout they live at bytes 324 and 325–326; in the 2014+ layout at bytes 331 and 332–333. Both are null for 1990–2004 (those public-use layouts carry no Y/N/U prior-cesarean field). Coverage on the remaining years tracks revised-cert adoption: `prior_cesarean` is populated on 30.8% of rows in 2005, 77.1% in 2010, 90.2% in 2013, and ~96–100% from 2014+; `prior_cesarean_count` follows the same pattern but is slightly lower in every year because a few thousand rows per year have known `RF_CESAR` with blank `RF_CESARN` (for example, 30.69% vs 30.75% in 2005 and 90.15% vs 90.24% in 2013).
   - **Rule**: for 2005–2013, restrict to `certificate_revision == 'revised_2003'` (or drop nulls) for a revision-consistent subset; for 2014–2024, the field is populated on essentially every row. For a cross-era "any prior cesarean" signal before 2005, use `delivery_method_recode` codes 2/4 (VBAC / repeat-cesarean tracer for 1990–2004; no equivalent exists for 2005–2013 unrevised-cert public-use rows).
 
 - **Father Hispanic origin** (`father_hispanic`)
@@ -243,6 +243,21 @@ This is a **genuine upstream difference** in what NCHS retains in each file fami
 
 **Validator treatment.** The `unrevised_2009_2013_has_educ`, `unrevised_2009_2013_has_pnmonth`, and `unrevised_2009_2013_has_smokeint` invariants are V2-only expectations. `scripts/05_validate/validate_v1_invariants.py` auto-detects V3 linked input by the presence of the `infant_death` column and skips those three invariants (they appear in the V3 report with a `_(skipped — V2-only, …)_` note). For V2 natality they remain hard-zero checks.
 
+### V3 linked vs V2 natality: 2009–2010 fields blanked in linked-only
+
+**The opposite asymmetry from above also exists**: two V2 fields with partial 2009–2010 coverage are 100% NULL in V3 linked for those two years, because the bytes are blank across the entire LinkCO denominator-plus zip:
+
+| Column | V2 natality non-null fraction | V3 linked non-null fraction |
+|---|---:|---:|
+| `payment_source_recode` (2009, 4.14 M rows) | 66.74 % (PAY_REC@413 partially populated) | **0 %** (PAY_REC@413 blank in entire LinkCO09 file) |
+| `payment_source_recode` (2010, 4.01 M rows) | 75.69 % | **0 %** (LinkCO10 blank) |
+| `father_education_cat4` (2009, 4.14 M rows) | 57.71 % (FEDUC@197 partially populated) | **0 %** (FEDUC@197 blank in entire LinkCO09 file) |
+| `father_education_cat4` (2010, 4.01 M rows) | 65.45 % | **0 %** (LinkCO10 blank) |
+
+This is a **genuine upstream NCHS limitation** — verified by raw-byte probe of `LinkCO09US.zip` and `LinkCO10US.zip`: bytes 197 (FEDUC) and 413 (PAY_REC) are space across the first 200,000 records of each file. The 2011 LinkCO file contains data starting at ~3.4 % non-blank.
+
+**Consequence.** If you need to analyze payment source or father's education on 2009–2010, use the V2 natality parquet — not the V3 linked one. V3 coverage matches V2 from 2011 onward.
+
 ### Linked vs natality birthweight: small systematic offset
 
 Mean `birthweight_grams_clean` on the V3 linked birth-side runs ~0.6–0.9 g lower than on V2 natality in every year 2005–2023 (sign is constant; never positive). The corresponding LBW rate runs ~0.02–0.03 percentage points higher in V3. The bias stems from differences in how the linked denominator file lays out birth-side fields (see also the upstream NCHS denominator-plus / period-cohort layouts) — both V2 and V3 still pass every NCHS NVSR external target because the bias sits below NVSR rounding precision. **Recommendation**: for natality-rate comparisons (LBW, mean birthweight, etc.) prefer V2; use V3 only when the death linkage is required for the analysis. Do not pool V2 and V3 birth-side birthweight in the same trend without acknowledging the offset.
@@ -277,7 +292,7 @@ These variables have sharp changes in null rates at specific year boundaries. A 
 | `maternal_education_cat4` | 2009 | ~0% → ~35% | Same mechanism as smoking (revised-only) |
 | `maternal_race_ethnicity_5` | 2020 | ~0% → ~3% | Multiracial births (MRACE6=06) cannot be bridged; now reconstructed from detail codes |
 | `maternal_race_bridged4` | 2020 | ~0% → 100% | NCHS dropped bridged race from public-use file |
-| `father_age` | 2012, 2013 | 13% → 23% → 21% → 16% | 2012–2013: NCHS moved raw single-year father age from `UFAGECOMB@184-185` (used 2005–2011) to `FAGECOMB@182-183` (first populated in 2013), with `UFAGECOMB` blanked in both years. `father_age` is populated for revised-cert rows only in 2012–2013 (~77–79% populated, i.e., matches the revised-cert share). For categorical (5-year-bucket) father age that covers unrevised-cert 2012 rows too, use `father_age_cat_from_rec11` (derived from `FAGEREC11`). |
+| `father_age` | 2012, 2013 | 13% → 23% → 21% → 16% | 2012–2013: `UFAGECOMB@184-185` carries the harmonizer's raw single-year father age through 2011, but NCHS blanked it starting in 2012 while revised-cert rows carried `FAGECOMB@182-183`. `father_age` is therefore populated for revised-cert rows only in 2012–2013 (~77–79% populated after the 99→null cleanup). For categorical (5-year-bucket) father age that covers unrevised-cert 2012 rows too, use `father_age_cat_from_rec11` (derived from `FAGEREC11`). |
 | `father_age_cat_from_rec11` | pre-2005, post-2013 | fully null outside 2005–2013 | FAGEREC11 recode is only in the 2005–2013 public-use layout. |
 | `prior_cesarean` | 2005 onset, 2014 cert-migration completion | Pre-2005 100% null → 2005 ~69% null → 2014 ~4% null | `RF_CESAR` is a revised-certificate-only field: `RF_CESAR@324` for 2005–2013, `RF_CESAR@331` for 2014+. Coverage tracks the revised-cert adoption curve (30.8% of rows populated in 2005 → 90.2% in 2013 → 96%+ in 2014+). Null for 1990–2004 — those public-use layouts do not carry a Y/N/U prior-cesarean field at all. |
 | `attendant_at_birth` | none | consistently ~0.1–0.2% null | Populated for all years 1990–2024. (Note: 2004 uses byte 408, not 410 as the adjacent 2005-record-length file might suggest — 2004 is layout-identical to 2003 for this field.) |
@@ -315,11 +330,11 @@ The 2003 public-use file suppresses single-year maternal age below 15 and expose
 
 **Rule**: for cross-year single-year-age comparisons that include 2003, use `maternal_age_cat` (buckets `<20`, `20–24`, …) or restrict to `maternal_age >= 15`. Do not use age=14 as a single-year comparison point across 2003.
 
-### 4b. Pre-2013 prior_cesarean has no Y/N/U source in the public-use file
+### 4b. Pre-2005 prior_cesarean has no Y/N/U source in the public-use file
 
-`prior_cesarean` (the derived bool) is populated only for **2013–2024**. 1990–2012 have no Y/N/U prior-cesarean field in the public-use record (the 2013 revised-cert block first introduced `RF_CESAR@324`). For 1990–2004, the `delivery_method_recode` codes `2` (VBAC) and `4` (repeat CS) are the closest tracer; both fall to zero once the recode frame changes at 2005, so there is no single-series pre-2014 prior-cesarean measure.
+`prior_cesarean` and `prior_cesarean_count` are null for **1990–2004** because those public-use layouts have no `RF_CESAR` / `RF_CESARN` field at all. From **2005–2013**, both columns are available only on revised-cert rows; from **2014+**, both are near-complete. For 1990–2004, the `delivery_method_recode` codes `2` (VBAC) and `4` (repeat CS) are the closest tracer; once the delivery-method coding changes at 2005, there is no single-series substitute for the unrevised-cert rows in 2005–2013.
 
-**Rule**: any "prior cesarean rate over time" plot that includes 1990–2012 must either (a) start at 2013, (b) note that pre-2013 points are not a like-for-like measure, or (c) substitute `delivery_method_recode` tracer codes for 1990–2004 and flag the gap 2005–2012.
+**Rule**: any "prior cesarean rate over time" plot that spans the 2005 boundary must either (a) treat 2005–2013 as a revised-cert-only subset via `certificate_revision == 'revised_2003'`, (b) state the 2005–2013 coverage break explicitly, or (c) use `delivery_method_recode` tracer codes only for the 1990–2004 segment and leave the unrevised-cert gap in 2005–2013 explicit.
 
 ### 5. Recommended model specifications by time window
 
@@ -342,11 +357,11 @@ The 2003 public-use file suppresses single-year maternal age below 15 and expose
 - 2026-03-30 (Session 24): Seven improvements from LBW-IMR divergence lessons learned: (1) added `marital_reporting_flag` from F_MAR_P (2014+); (2) added unified missingness diagnostics script; (3) reconstructed `maternal_race_ethnicity_5` for 2020-2024 from MRACE6 detail codes, added `race_bridge_method`; (4) added derived nullable booleans for diabetes/HTN (sentinel 9→null); (5) added "Known pitfalls for multi-decade trend analyses" section; (6) added null-rate discontinuity detection to invariants validator; (7) added parquet versioning with SHA-256 provenance.
 - 2026-04-22: Field-position + parser-completeness corrections from a byte-level audit pass.
   - **2004 `attendant_at_birth`**: the prior release read `ATTEND` at byte 410 (2005's position). Correct position is byte 408 (same as 2003). Fix restored 4,118,907 rows from 100% null to ~0.22% null — matches 2003/2005 exactly.
-  - **2013 `father_age`**: NCHS moved the raw single-year age field from `UFAGECOMB@184-185` (2005–2011) to `FAGECOMB@182-183` starting 2013. The parser now reads both and prefers `FAGECOMB` when non-null. Fix restored ~3.1M rows for 2013. As a side effect, 2012 revised-cert rows (88% of births) also gained `FAGECOMB@182-183` coverage that was previously null.
+  - **2012–2013 `father_age`**: by 2012, NCHS had blanked the public-use `UFAGECOMB@184-185` field while revised-cert rows carried `FAGECOMB@182-183`. The parser now reads both and prefers `FAGECOMB` when non-null. Fix restored ~3.1M rows for 2013; as a side effect, 2012 revised-cert rows also gained `FAGECOMB@182-183` coverage that was previously null.
   - **`prior_cesarean` 2005–2013**: `RF_CESAR@324` and `RF_CESARN@325-326` are revised-certificate fields first present in 2005 and populated only on revised-cert rows. They were previously not parsed pre-2014, leaving `prior_cesarean` and `prior_cesarean_count` null for all 2005–2013 rows. Now populated on revised-cert rows across 2005–2013 (30.8% → 90.2% coverage, tracking cert adoption).
   - **2016+ diabetes / hypertension source**: the `URF_DIAB`/`URF_CHYPER`/`URF_PHYPER` tail block at bytes 1331–1333 exists only in the 2014–2015 User Guides; bytes 571–1330 are `FILLER_X` in 2016+. The harmonizer now selects source fields per-year rather than per-batch: 1990–2002 → `DIABETES`/`CHYPER`/`PHYPER`; 2003–2015 → `URF_*` (which really are at 1331–1333 for 2014–2015); 2016+ → `RF_PDIAB`/`RF_GDIAB`/`RF_PHYPE`/`RF_GHYPE` at bytes 313–316.
   - **Linked cohort merge**: 2016–2023 period-cohort files are merged on the NCHS-documented composite key `(CO_SEQNUM, CO_YOD)` rather than CO_SEQNUM alone, with an explicit assertion that same-year and next-year numerator keysets are disjoint.
   - **New columns**: `father_age_cat_from_rec11` (categorical 5-year-bucket father age derived from `FAGEREC11`, populated 2005–2013) and `maternal_race_detail_15cat` (MRACE15 15-category mother's race, populated 2014+).
   - **V3 linked schema** now mirrors V2 exactly (78 harmonized + 16 derived = 94, up from 76 + 16 = 92 in the prior release).
   - **Validator hygiene**: 13 raw `pc.and_` sites in the invariants validator wrapped with `_safe_and` to prevent a null year or null cert_rev from silently suppressing violation counts. Neonatal/postneonatal booleans made three-valued: `False` for survivors, `True`/`False` for deaths with known age, `null` for deaths with unknown age (currently none).
-  - Net pipeline effect: ~49 million row-variable cells newly populated across the 2004–2013 window. All 38 internal invariants still pass with zero violations; V2 183/183 and V3 linked 35/35 external targets still pass.
+  - Net pipeline effect: ~49 million row-variable cells newly populated across the 2004–2013 window. All 41 internal invariants still pass with zero violations on V2 natality (V3 linked: 38 pass clean + 1 within a documented exception budget of 2 + 3 V2-only invariants skipped); V2 183/183 and V3 linked 35/35 external targets still pass.

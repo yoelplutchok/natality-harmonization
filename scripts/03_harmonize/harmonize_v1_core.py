@@ -39,8 +39,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--years",
         type=str,
-        default="2005-2015",
-        help="Comma years or range like 2005-2015",
+        default="1990-2024",
+        help="Comma years or range like 1990-2024 (default = full V2 coverage)",
     )
     p.add_argument(
         "--batch-rows",

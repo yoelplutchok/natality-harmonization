@@ -47,11 +47,8 @@ All outputs live under `output/`. The three files a researcher will actually use
 6. **[docs/FAQ.md](docs/FAQ.md)** — common questions and gotchas.
 
 Supporting reference:
-- **[docs/DATA_SOURCE_V1.md](docs/DATA_SOURCE_V1.md)** — NCHS source URLs, file naming, compression formats, and provenance.
-- **[docs/DOWNLOAD_INSTRUCTIONS.md](docs/DOWNLOAD_INSTRUCTIONS.md)** — `curl` commands to fetch the raw zips and user-guide PDFs from NCHS.
-- **[docs/ABOUT_SOURCE_DATA.md](docs/ABOUT_SOURCE_DATA.md)** — what NCHS natality files are and why they matter.
-- **[docs/PROJECT_EXPLAINER.md](docs/PROJECT_EXPLAINER.md)** — high-level project narrative.
 - **[metadata/harmonized_schema.csv](metadata/harmonized_schema.csv)** — the canonical machine-readable schema (columns, dtypes, raw-field provenance per era).
+- **[metadata/file_inventory.csv](metadata/file_inventory.csv)** — per-year inventory of source NCHS zips (filename, size, SHA-256).
 
 ## Repository layout
 
@@ -59,7 +56,7 @@ Supporting reference:
 natality-harmonization/
 ├── README.md                          ← you are here
 ├── requirements.txt                   ← Python deps (pyarrow, pandas)
-├── raw_data/                          ← NCHS natality + linked zips (not committed; see docs/DOWNLOAD_INSTRUCTIONS.md)
+├── raw_data/                          ← NCHS natality + linked zips (not committed; download per "Quick reproduce" below)
 │   └── linked/                        ← linked birth-infant death zips
 ├── raw_docs/                          ← NCHS User Guide PDFs (committed for reproducibility)
 │   ├── Nat{year}doc.pdf               ← 1990–2004 layout docs
@@ -91,7 +88,26 @@ natality-harmonization/
 
 ## Quick reproduce (full pipeline)
 
-Once `raw_data/` is populated per `docs/DOWNLOAD_INSTRUCTIONS.md`:
+### 0. Download raw NCHS files
+
+The raw zips and User Guide PDFs are public-use NCHS products. Download from the CDC FTP:
+
+- Natality data: `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/natality/` → `raw_data/`
+- Natality docs: `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Dataset_Documentation/DVS/natality/` → `raw_docs/`
+- Linked 2005–2015: `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/cohortlinkedus/` → `raw_data/linked/`
+- Linked 2016–2023: `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/DVS/period-cohort-linked/` → `raw_data/linked/`
+
+Filename patterns:
+- 1990–1993: `Nat{YYYY}.zip` + `Nat{YYYY}doc.pdf`
+- 1994–2024: `Nat{YYYY}us.zip` + `UserGuide{YYYY}.pdf`
+- Linked 2005–2015: `LinkCO{YY}USnum.zip` / `LinkCO{YY}USden.zip` + `LinkCO{YY}Guide.pdf`
+- Linked 2016–2023: `{Y+1}PE{Y}CO.zip` + `{Y+1}PE{Y}CO_linkedUG.pdf`
+
+`metadata/file_inventory.csv` lists every required file with its expected size and SHA-256.
+
+Years 2009–2013 and 2015 use non-standard zip compression (deflate64 / PPMd); install the `7z` CLI utility (`brew install p7zip` on macOS).
+
+### 1+. Run the pipeline
 
 ```bash
 # 1. Parse raw zips → per-year parquet (run once)
@@ -131,5 +147,5 @@ End-to-end runtime on a single modern laptop: ~1 hour wall clock for parse, ~15 
 
 ## Citation
 
-- Cite **NCHS** as the source of the underlying public-use microdata. See `docs/DATA_SOURCE_V1.md` for NVSR and data-request citation patterns.
+- Cite **NCHS** as the source of the underlying public-use natality and linked birth-infant death microdata. The relevant NVSR "Births: Final Data" report for the year(s) you analyze is the standard citation; see `metadata/external_validation_targets_v1.csv` `value_source` column for the exact NVSR volume/issue/date per year.
 - Cite this harmonization: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19363075.svg)](https://doi.org/10.5281/zenodo.19363075)

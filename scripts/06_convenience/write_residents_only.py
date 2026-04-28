@@ -79,8 +79,17 @@ def filter_residents(in_path: Path, out_path: Path, batch_size: int = 500_000) -
         for batch in pf.iter_batches(batch_size=batch_size):
             total_in += batch.num_rows
             foreign = batch.column(batch.schema.get_field_index("is_foreign_resident"))
-            # Keep rows where is_foreign_resident is explicitly False
-            keep = pc.equal(foreign, pa.scalar(False))
+            # Keep rows where is_foreign_resident is explicitly False.
+            # Wrap in fill_null(False) because pc.equal returns null on null inputs,
+            # and batch.filter(null_mask) silently drops the row — we want explicit
+            # behaviour: a null is_foreign_resident raises rather than silently drops.
+            keep = pc.fill_null(pc.equal(foreign, pa.scalar(False)), False)
+            null_count = int(pc.sum(pc.cast(pc.is_null(foreign), pa.int64())).as_py() or 0)
+            if null_count:
+                raise RuntimeError(
+                    f"is_foreign_resident has {null_count} null rows in input batch — "
+                    f"refusing to silently drop. Investigate upstream restatus parsing."
+                )
             filtered = batch.filter(keep)
 
             if filtered.num_rows > 0:
@@ -120,10 +129,22 @@ def main() -> None:
     if not args.skip_v3:
         filter_residents(args.v3_in, v3_out, args.batch_size)
 
-    # Write PROVENANCE.md with SHA-256 hashes for downstream verification
+    # Write PROVENANCE.md with SHA-256 hashes for downstream verification.
+    # Preserve any existing "## Previous build" / "## Supersedes" trailing blocks
+    # so an audit trail of historic Zenodo-deposited SHAs survives a rebuild.
     provenance_path = args.out_dir / "PROVENANCE.md"
     git_hash = _get_git_hash()
     build_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    preserved_tail = ""
+    if provenance_path.is_file():
+        old = provenance_path.read_text(encoding="utf-8")
+        # Find first occurrence of any preservation marker and keep everything from there on.
+        markers = ["## Previous build", "## Supersedes", "## Earlier deposits"]
+        first = min((old.find(m) for m in markers if old.find(m) >= 0), default=-1)
+        if first >= 0:
+            preserved_tail = "\n" + old[first:].rstrip() + "\n"
+
     prov_lines = [
         "# Convenience parquet provenance",
         "",
@@ -142,7 +163,11 @@ def main() -> None:
             prov_lines.append(f"{sha}  {out_file.name}")
     prov_lines.append("```")
     prov_lines.append("")
-    provenance_path.write_text("\n".join(prov_lines), encoding="utf-8")
+    body = "\n".join(prov_lines)
+    if preserved_tail:
+        body = body.rstrip() + preserved_tail
+        print(f"  (preserved historical-build block from existing PROVENANCE.md)")
+    provenance_path.write_text(body, encoding="utf-8")
     print(f"\nWrote {provenance_path}")
     print("Done.")
 

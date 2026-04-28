@@ -30,7 +30,6 @@ Outputs:
 
 - `output/validation/harmonized_missingness_by_year.csv` — null rate for every harmonized variable by year (columns: `year`, `variable`, `n_total`, `n_null`, `null_pct`)
 - `output/validation/harmonized_missingness_breaks.csv` — any variable where the null rate changes by >5 percentage points between adjacent years
-- `output/validation/harmonized_missingness_report.md` — summary with break table
 
 This is the recommended first check before any multi-year analysis. Known structural breaks include:
 
@@ -131,8 +130,10 @@ python scripts/05_validate/validate_v1_invariants.py \
 
 Outputs:
 
-- `output/validation/invariants_report_1990_2024.md`
-- `output/validation/invariants_year_summary_1990_2024.csv`
+- `output/validation/invariants_report_v2_1990_2024.md` (V2 natality)
+- `output/validation/invariants_year_summary_v2_1990_2024.csv` (V2 natality)
+- `output/validation/invariants_report_v3_linked_2005_2023.md` (V3 linked)
+- `output/validation/invariants_year_summary_v3_linked_2005_2023.csv` (V3 linked)
 
 This script runs 41 deterministic invariant checks (V2 natality; V3 linked skips 3 V2-only coverage invariants and allows `record_weight_null_when_survivor ≤ 2` as a documented upstream NCHS quirk — see `docs/COMPARABILITY.md`):
 
@@ -152,7 +153,7 @@ This script runs 41 deterministic invariant checks (V2 natality; V3 linked skips
 - **prior_cesarean_count**: null pre-2005; never takes the sentinel 99 post-2014 (the harmonizer maps 99→null)
 - **delivery_method_recode allowed-value set**: {1,2,3,4,9} for 1990–2004; {1,2,9} for 2005+ — catches any crosswalk regression
 - **record_weight null only for documented survivors**: V3 linked quirk — exactly 2 survivor rows (1 in 2014, 1 in 2015) have null record_weight per upstream NCHS data
-- **null-rate discontinuity detection** (informational, not hard-fail): for 16 key harmonized variables, computes per-year null rates and flags any >5 percentage-point year-over-year change. Expected breaks (marital at 2017, smoking at 2009/2014, education at 2009/2014, race_bridged4 at 2020) are catalogued in `docs/COMPARABILITY.md` §"Known pitfalls".
+- **null-rate discontinuity detection** (informational, not hard-fail): for 18 key harmonized variables, computes per-year null rates and flags any >5 percentage-point year-over-year change. Expected breaks (marital at 2017, smoking at 2009/2014, education at 2009/2014, race_bridged4 at 2020) are catalogued in `docs/COMPARABILITY.md` §"Known pitfalls".
 
 ### Field-position provenance
 

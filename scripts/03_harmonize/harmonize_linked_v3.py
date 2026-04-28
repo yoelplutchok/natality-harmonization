@@ -40,8 +40,8 @@ def parse_args() -> argparse.Namespace:
         help="Output Parquet path",
     )
     p.add_argument(
-        "--years", type=str, default="2005-2015",
-        help="Comma years or range like 2005-2015",
+        "--years", type=str, default="2005-2023",
+        help="Comma years or range like 2005-2023 (default = full V3 linked coverage)",
     )
     p.add_argument(
         "--batch-rows", type=int, default=500_000,

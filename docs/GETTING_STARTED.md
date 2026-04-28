@@ -154,7 +154,7 @@ python scripts/06_convenience/write_residents_only.py
 
 7. **`prior_cesarean` is revised-cert-only and starts at 2005** — `RF_CESAR` (the Y/N/U prior-cesarean field) is a revised-certificate field. Coverage tracks cert-revision adoption: 30.8% of rows populated in 2005, rising to 90.2% in 2013 and ~96-100% from 2014+. 1990-2004 have no Y/N/U prior-cesarean field at all in the public-use layouts (use `delivery_method_recode` codes 2/4 — VBAC + repeat CS — as a tracer for 1990-2004 only).
 
-8. **`father_age` 2012-2013**: NCHS moved raw single-year father age from `UFAGECOMB` (2005-2011) to `FAGECOMB` (2013 onward) across those two years; only revised-cert rows (77-79% of births in 2012/2013) carry `FAGECOMB`. For categorical (5-year bucket) father age that covers the unrevised-cert 2005-2013 rows too, use `father_age_cat_from_rec11` (derived from the `FAGEREC11` recode; populated 2005-2013 only).
+8. **`father_age` 2012-2013**: `UFAGECOMB` carries raw single-year father age through 2011, but NCHS blanked it starting in 2012 while revised-cert rows carried `FAGECOMB`. Only revised-cert rows (77-79% of births in 2012/2013) therefore contribute single-year `father_age` in those two years. For categorical (5-year bucket) father age that covers the unrevised-cert 2005-2013 rows too, use `father_age_cat_from_rec11` (derived from the `FAGEREC11` recode; populated 2005-2013 only).
 
 9. **2003 `maternal_age` has a phantom spike at age 14** — the 2003 public-use file suppresses single-year age below 15 and exposes only the `MAGER41` recode, so all births to mothers under 15 are coded as `maternal_age == 14`. Aggregated `maternal_age_cat` buckets are correct; for single-year-age analyses that span 2003, use `maternal_age_cat` or restrict to age ≥ 15.
 
@@ -184,5 +184,4 @@ python scripts/06_convenience/write_residents_only.py
 - **Codebook**: `docs/CODEBOOK.md` — variable definitions and death-side columns
 - **Comparability**: `docs/COMPARABILITY.md` — trend-safe subset guidance
 - **Validation**: `docs/VALIDATION.md` — what was checked and how
-- **Source data**: `docs/ABOUT_SOURCE_DATA.md` — what NCHS files are used
-- **Schema**: `metadata/harmonized_schema.csv` — machine-readable provenance
+- **Schema**: `metadata/harmonized_schema.csv` — machine-readable provenance (raw-field positions per era)

@@ -249,17 +249,21 @@ def main() -> None:
     ]
     has_new_cols = {c: (c in cols) for c in optional_new}
 
-    # Auto-detect V3 linked input by the presence of the death-side columns.
-    # V3 has a genuine upstream-source divergence from V2 on 2009–2010 unrevised-cert
-    # rows: the linked denominator-plus layout for 2005–2013 retains MEDUC_REC /
-    # MPCB / CIG_1-3 bytes that the natality 2009–2010 public-use layout drops,
-    # so `maternal_education_cat4`, `prenatal_care_start_month`, and
-    # `smoking_intensity_max_recode6` are populated on ~2M V3 unrevised-cert rows
-    # where V2 leaves them null. Skip those three V2-only coverage invariants in
-    # V3 mode rather than nulling real upstream data — see
-    # `docs/COMPARABILITY.md` §"V3 linked vs V2 natality: 2009–2010 unrevised-cert
-    # field retention".
-    is_v3_linked = has_new_cols["infant_death"]
+    # Auto-detect V3 linked input. V3 has a genuine upstream-source divergence
+    # from V2 on 2009–2010 unrevised-cert rows: the linked denominator-plus layout
+    # for 2005–2013 retains MEDUC_REC / MPCB / CIG_1-3 bytes that the natality
+    # 2009–2010 public-use layout drops, so `maternal_education_cat4`,
+    # `prenatal_care_start_month`, and `smoking_intensity_max_recode6` are
+    # populated on ~2M V3 unrevised-cert rows where V2 leaves them null. Skip
+    # those three V2-only coverage invariants in V3 mode rather than nulling real
+    # upstream data — see `docs/COMPARABILITY.md` §"V3 linked vs V2 natality:
+    # 2009–2010 unrevised-cert field retention".
+    #
+    # Detection requires BOTH `infant_death` AND `record_weight` to be present,
+    # not just `infant_death`. A future V2 enhancement that adds an
+    # `infant_death`-named column derived from natality alone would otherwise
+    # silently flip the validator into V3 mode and skip three V2 invariants.
+    is_v3_linked = has_new_cols["infant_death"] and has_new_cols["record_weight"]
 
     # Known upstream-NCHS exceptions (expected counts). A V3 linked run should
     # report these values exactly; any deviation is a FAIL.
@@ -738,12 +742,15 @@ def main() -> None:
     # For 2009–2013 unrevised records, revised-only domains should be (almost) entirely null.
     # Use a strict threshold of 99.9% missing; any non-null is treated as a violation above anyway.
 
+    # Encode V2/V3 mode in the output filename to prevent V2 and V3 reports from
+    # clobbering each other when both are run with the same --years range.
+    mode_tag = "v3_linked" if is_v3_linked else "v2"
     if suffix == "2005_2015":
-        out_csv = args.out_dir / "v1_invariants_year_summary.csv"
-        out_md = args.out_dir / "v1_invariants_report.md"
+        out_csv = args.out_dir / f"{mode_tag}_invariants_year_summary.csv"
+        out_md = args.out_dir / f"{mode_tag}_invariants_report.md"
     else:
-        out_csv = args.out_dir / f"invariants_year_summary_{suffix}.csv"
-        out_md = args.out_dir / f"invariants_report_{suffix}.md"
+        out_csv = args.out_dir / f"invariants_year_summary_{mode_tag}_{suffix}.csv"
+        out_md = args.out_dir / f"invariants_report_{mode_tag}_{suffix}.md"
 
     with out_csv.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(

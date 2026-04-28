@@ -113,7 +113,7 @@ For analyses that need father age for *every* row in 2005–2013, use **`father_
 
 For 1990–2004, the public-use layouts carry no Y/N/U prior-cesarean field at all. The closest tracer is `delivery_method_recode`: codes 2 (VBAC) and 4 (repeat cesarean) together identify a mother with a known prior cesarean. This tracer is only available 1990–2004 because the delivery-method coding changed at 2005 (3-category vs. 5-category).
 
-The companion `prior_cesarean_count` column (0–30 count of prior cesareans, with 99→null) has identical coverage — 2005–2024, revised-cert-only in 2005–2013, and ~96–100% in 2014+.
+The companion `prior_cesarean_count` column (0–30 count of prior cesareans, with 99→null) follows the same coverage pattern — 2005–2024, revised-cert-only in 2005–2013, and ~96–100% in 2014+ — but is very slightly less complete than `prior_cesarean` because some rows have a known Y/N/U flag with a blank count.
 
 ## How do I compute the cesarean rate across 1990–2024?
 
@@ -194,6 +194,7 @@ See `docs/VALIDATION.md`. Key artifacts:
 
 - `output/validation/external_validation_v1_comparison.csv` (V2 natality: 183 targets)
 - `output/validation/external_validation_v3_linked_comparison.csv` (V3 linked: 35 targets)
-- `output/validation/invariants_report_1990_2024.md` (deterministic consistency checks + null-rate discontinuity detection)
+- `output/validation/invariants_report_v2_1990_2024.md` (V2 natality deterministic consistency checks + null-rate discontinuity detection)
+- `output/validation/invariants_report_v3_linked_2005_2023.md` (V3 linked equivalent)
 - `output/validation/harmonized_missingness_by_year.csv` (per-variable per-year null rates)
 - `output/validation/harmonized_missingness_breaks.csv` (>5 ppt year-over-year jumps)
