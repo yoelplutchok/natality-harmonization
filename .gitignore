@@ -7,16 +7,16 @@ output/**/*.parquet
 output/**/*.feather
 !output/**/.gitkeep
 
-# Intermediate outputs (not for public release)
+# Intermediate build outputs (regeneratable from raw_data/ via scripts/)
 output/yearly_clean/
 output/linked/
 output/harmonized/
 output/convenience/
 
 # output/validation/: ignore everything except the 4 files mirrored to Zenodo + .gitkeep.
-# This is an explicit allowlist — anything else (qa_*, key_rates_*, invariants_*,
-# linked_validation_*, row_count_validation_*, harmonized_missingness_report.md,
-# legacy v2/ subdir, per-year-range historical reports) stays untracked.
+# Anything else (qa_*, key_rates_*, invariants_*, linked_validation_*, row_count_*,
+# harmonized_missingness_report.md, legacy v2/ subdir, per-year-range historical reports)
+# stays untracked.
 output/validation/*
 output/validation/v2/
 !output/validation/.gitkeep
@@ -27,23 +27,7 @@ output/validation/v2/
 !output/validation/harmonized_missingness_breaks.csv
 !output/validation/harmonized_missingness_by_year.csv
 
-# Internal / private docs (kept locally, not shipped to GitHub)
-docs/LLM_HANDOFF_LOG.md
-docs/AUDIT_SESSION_*.md
-docs/ANALYSIS_PLAN_*.md
-docs/PAPER_DRAFT_DATA_DESCRIPTOR.md
-docs/PAPER_DRAFT_DATA_DESCRIPTOR_humanized.md
-docs/ZENODO_UPLOAD_PLAN.md
-
-# Internal / WIP metadata (kept locally if regenerated, not shipped)
-metadata/validation_tracking.csv
-metadata/variable_crosswalk_working.csv
-metadata/core_variables_v1.md
-
-# Audit / fix-log history (kept locally under audits/, not shipped)
-audits/
-
-# Third-party PDFs
+# Third-party PDFs (NCHS User Guides under raw_docs/, etc.)
 *.pdf
 # ...except the publication figures (which we ship as both PDF and PNG)
 !figures/*.pdf

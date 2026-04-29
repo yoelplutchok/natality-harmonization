@@ -122,4 +122,4 @@ python scripts/06_convenience/write_residents_only.py
 ## Citation
 
 - Cite NCHS as the source of the underlying natality and linked birth-infant death public-use files.
-- Cite this repository/release: https://doi.org/10.5281/zenodo.19363075
+- Cite this repository/release: https://doi.org/10.5281/zenodo.19363074 (concept DOI — resolves to latest version)

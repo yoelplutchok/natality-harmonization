@@ -1,6 +1,7 @@
-# Pinned to the versions used for the 2026-04-22 release build (Zenodo DOI
-# 10.5281/zenodo.19363075 and subsequent bug-fix revisions). >= kept to allow
-# minor patch-level upgrades without forcing environment churn; if you need a
+# Python deps for the harmonized natality dataset (Zenodo concept DOI
+# 10.5281/zenodo.19363074, latest version v2.7.0 = 10.5281/zenodo.19868835).
+# Pinned to >= the versions used for the v2.6 / v2.7 build to allow minor
+# patch-level upgrades without forcing environment churn; if you need a
 # byte-identical rebuild, pin to exact == versions.
 
 pandas>=2.3.2

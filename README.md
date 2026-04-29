@@ -25,7 +25,7 @@ This project parses all of them, maps the era-specific raw fields to a **single 
 - **Residents-only subsets**: 138.58M V2; 74.79M V3 linked
 - **Columns**: V2 = 71 harmonized + 13 derived = 84; V3 linked = 78 harmonized + 16 derived = 94 (same 84 as V2 plus 7 death-side harmonized + 3 death-side derived)
 - **Validation**: all 41 internal invariants pass with 0 violations against the V2 natality parquet (V3 linked: 38 pass clean + 1 with 2 documented NCHS-upstream survivor exceptions; 3 V2-only coverage invariants are skipped in V3 mode — see `docs/COMPARABILITY.md` §"V3 linked vs V2 natality: 2009–2010 unrevised-cert field retention"); V2 external targets 183/183 pass (1990–2024); V3 linked external targets 35/35 pass (2005–2023, from NCHS linked user guides)
-- **Zenodo DOI**: [10.5281/zenodo.19363075](https://doi.org/10.5281/zenodo.19363075)
+- **Zenodo DOI** (concept — always resolves to latest): [10.5281/zenodo.19363074](https://doi.org/10.5281/zenodo.19363074). Latest version: **v2.7.0** ([10.5281/zenodo.19868835](https://doi.org/10.5281/zenodo.19868835))
 
 ## Output files
 
@@ -148,4 +148,8 @@ End-to-end runtime on a single modern laptop: ~1 hour wall clock for parse, ~15 
 ## Citation
 
 - Cite **NCHS** as the source of the underlying public-use natality and linked birth-infant death microdata. The relevant NVSR "Births: Final Data" report for the year(s) you analyze is the standard citation; see `metadata/external_validation_targets_v1.csv` `value_source` column for the exact NVSR volume/issue/date per year.
-- Cite this harmonization: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19363075.svg)](https://doi.org/10.5281/zenodo.19363075)
+- Cite this harmonization (concept DOI — always resolves to latest version):
+  [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19363074.svg)](https://doi.org/10.5281/zenodo.19363074)
+- Or pin to a specific version:
+  - v2.7.0 (current): [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19868835.svg)](https://doi.org/10.5281/zenodo.19868835)
+  - v2.5.0 (initial): [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19363075.svg)](https://doi.org/10.5281/zenodo.19363075)

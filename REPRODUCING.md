@@ -60,7 +60,7 @@ That repository contains all the code (`scripts/01_import/` through `scripts/07_
 When using this dataset, please cite:
 
 - **NCHS** as the source of the underlying public-use natality and linked birth-infant death microdata (the relevant NVSR "Births: Final Data" reports for the year(s) you analyze; see `value_source` column in `external_validation_targets_v1.csv`).
-- **This harmonization**: DOI [10.5281/zenodo.19363075](https://doi.org/10.5281/zenodo.19363075).
+- **This harmonization**: concept DOI [10.5281/zenodo.19363074](https://doi.org/10.5281/zenodo.19363074) (resolves to latest version). For pinned-version citation, use the version-specific DOI shown on the Zenodo page (e.g., v2.7.0 = [10.5281/zenodo.19868835](https://doi.org/10.5281/zenodo.19868835)).
 
 ## Questions or issues
 

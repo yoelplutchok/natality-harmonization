@@ -91,7 +91,7 @@ No. The public-use natality files do not include sub-state geography. State-leve
 ## How should the data be cited?
 
 - Cite NCHS as the source of the underlying public-use microdata
-- Cite this repository/release: https://doi.org/10.5281/zenodo.19363075
+- Cite this repository/release: https://doi.org/10.5281/zenodo.19363074 (concept DOI — resolves to latest version)
 
 Example:
 
